@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <linearGradient id="logoGradInner" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#818cf8"/>
+      <stop offset="100%" style="stop-color:#c084fc"/>
+    </linearGradient>
+  </defs>
+  <path d="M24 2L42 13V35L24 46L6 35V13L24 2Z" fill="url(#logoGrad)" rx="4"/>
+  <path d="M24 8L36 15V33L24 40L12 33V15L24 8Z" fill="none" stroke="url(#logoGradInner)" stroke-width="1.5" opacity="0.4"/>
+  <path d="M30 16C26.5 13 20.5 13 17 16.5C13.5 20 13.5 26 17 29.5C20.5 33 26.5 33 30 29.5" 
+        stroke="white" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  <circle cx="31" cy="22.5" r="2" fill="white" opacity="0.9"/>
+</svg>
