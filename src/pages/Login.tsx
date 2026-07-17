@@ -60,7 +60,7 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh' }}>
       {/* Left Panel - Branding */}
       <div
         style={{
@@ -72,7 +72,6 @@ const Login: React.FC = () => {
           alignItems: 'center',
           padding: 60,
           position: 'relative',
-          overflow: 'hidden',
         }}
       >
         {/* Decorative circles */}
@@ -127,19 +126,6 @@ const Login: React.FC = () => {
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, margin: 0, maxWidth: 300, lineHeight: 1.6 }}>
             Gérez votre espace de coworking avec facilité et elegance
           </p>
-
-          <div style={{ marginTop: 48, display: 'flex', gap: 40, justifyContent: 'center' }}>
-            {[
-              { label: 'Visiteurs', value: '2.4k+' },
-              { label: 'Sessions', value: '12k+' },
-              { label: 'Revenus', value: '85k+' },
-            ].map((item) => (
-              <div key={item.label}>
-                <div style={{ color: 'white', fontSize: 22, fontWeight: 700 }}>{item.value}</div>
-                <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginTop: 4 }}>{item.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
