@@ -28,8 +28,8 @@ const LottieLoader: React.FC = () => {
 };
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('ramijawadi104@gmail.com');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('comanager@gmail.com');
+  const [password, setPassword] = useState('manager2026');
   const [loading, setLoading] = useState(false);
   const [showSuccessLoader, setShowSuccessLoader] = useState(false);
   const navigate = useNavigate();
@@ -60,7 +60,7 @@ const Login: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', position: 'absolute', top: 0, left: 0, overflow: 'hidden', margin: 0, padding: 0 }}>
       {/* Left Panel - Branding */}
       <div
         style={{
@@ -70,7 +70,7 @@ const Login: React.FC = () => {
           flexDirection: 'column',
           justifyContent: 'center',
           alignItems: 'center',
-          padding: 60,
+          padding: '40px 60px',
           position: 'relative',
         }}
       >
