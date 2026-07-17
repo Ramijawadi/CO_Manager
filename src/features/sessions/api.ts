@@ -26,7 +26,12 @@ export const getActiveSessions = async (): Promise<Session[]> => {
     console.error('Error fetching active sessions:', error);
     throw new Error(`Failed to fetch active sessions: ${error.message}`);
   }
-  return data || [];
+  const sessions = (data || []).map((s: any) => ({
+    ...s,
+    customers: Array.isArray(s.customers) ? s.customers[0] : s.customers,
+    session_products: s.session_products || [],
+  }));
+  return sessions;
 };
 
 export const addSessionProduct = async (session_id: string, product_id: string, quantity: number, total_price: number): Promise<void> => {

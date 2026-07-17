@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Table, Button, Space, Popconfirm, message, Tag, Card, Row, Col, Statistic } from 'antd';
-import { DeleteOutlined, PlusOutlined, StopOutlined, UserOutlined, CheckCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, StopOutlined, UserOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSubscriptions, createSubscription, deleteSubscription, updateSubscription } from './api';
 import { getCustomers } from '../customers/api';
