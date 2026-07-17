@@ -72,9 +72,6 @@ const SubscriptionList: React.FC = () => {
   const expiredCount = subscriptions.filter(s => 
     s.end_date < today && s.status !== 'cancelled'
   ).length;
-  const cancelledCount = subscriptions.filter(s => 
-    s.status === 'cancelled'
-  ).length;
   const totalRevenue = subscriptions
     .filter(s => s.status === 'active' || s.end_date >= today)
     .reduce((acc, s) => acc + (s.plans?.price || 0), 0);
