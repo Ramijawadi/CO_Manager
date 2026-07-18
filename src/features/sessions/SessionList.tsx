@@ -214,7 +214,7 @@ const SessionList: React.FC = () => {
               <SessionConsumptionPanel session={record} onClose={() => setExpandedRowKeys([])} />
             ),
             expandedRowKeys,
-            onExpandedRowChange: (keys: React.Key[]) => setExpandedRowKeys(keys),
+            onExpandedRowsChange: (keys: React.Key[]) => setExpandedRowKeys(keys),
             rowExpandable: () => true,
           }}
         />
