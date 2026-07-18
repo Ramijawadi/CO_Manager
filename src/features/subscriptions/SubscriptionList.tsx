@@ -290,7 +290,7 @@ const SubscriptionList: React.FC = () => {
         </Row>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Table
           columns={columns}
           dataSource={subscriptions}
@@ -304,7 +304,7 @@ const SubscriptionList: React.FC = () => {
             pageSizeOptions: ['10', '20', '50', '100']
           }}
           style={{ height: '100%' }}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1000, y: 'calc(100vh - 420px)' }}
         />
       </div>
 

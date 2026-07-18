@@ -170,6 +170,7 @@ const Reports: React.FC = () => {
             rowKey="id"
             pagination={{ pageSize: 5, size: 'small' }}
             style={{ height: '100%' }}
+            scroll={{ y: 'calc(100vh - 480px)' }}
           />
         </div>
       </Card>

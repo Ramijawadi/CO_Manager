@@ -223,8 +223,23 @@ html {
   font-weight: 500;
 }
 
+/* ── Sticky Table Header: header stays, body scrolls ── */
 .ant-table-wrapper {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-wrapper .ant-spin-nested-loading,
+.ant-table-wrapper .ant-spin-nested-loading > .ant-spin-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ant-table-wrapper .ant-table {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
 }
@@ -232,17 +247,29 @@ html {
 .ant-table-wrapper .ant-table-container {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.ant-table-wrapper .ant-table-body {
-  overflow-y: auto !important;
-  max-height: none !important;
-}
-
-.ant-table-wrapper .ant-table-thead {
+.ant-table-wrapper .ant-table-header {
   flex-shrink: 0;
 }
 
-.ant-table-wrapper .ant-table-body-scroll-inner {
-  height: 100%;
+.ant-table-wrapper .ant-table-thead > tr > th,
+.ant-table-wrapper .ant-table-thead > tr > td {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #fff !important;
 }
+
+.ant-table-wrapper .ant-table-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto !important;
+}
+
+.ant-table-wrapper .ant-pagination {
+  flex-shrink: 0;
+}
+
