@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Button, Typography, message } from 'antd';
-import { supabase } from '../lib/supabase';
+import { Input, Button, Typography, message, Alert } from 'antd';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import lottie from 'lottie-web';
@@ -152,6 +152,21 @@ const Login: React.FC = () => {
           </div>
 
           <form onSubmit={handleLogin}>
+            {!isSupabaseConfigured() && (
+              <Alert
+                type="error"
+                showIcon
+                style={{ marginBottom: 18, borderRadius: 10 }}
+                message="Configuration manquante"
+                description={
+                  <>
+                    Les variables <strong>VITE_SUPABASE_URL</strong> et <strong>VITE_SUPABASE_ANON_KEY</strong> ne sont pas définies.
+                    <br />
+                    Ajoutez-les dans votre fichier <code>.env</code> ou dans les <strong>Environment Variables</strong> de votre projet Vercel.
+                  </>
+                }
+              />
+            )}
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
                 Email
