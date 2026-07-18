@@ -13,9 +13,10 @@ const { Text } = Typography;
 
 interface Props {
   session: Session;
+  onClose?: () => void;
 }
 
-const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
+const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -118,7 +119,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
         dataSource={session.session_products || []}
         columns={columns}
         rowKey="id"
-        pagination={false}
+        pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}` }}
         size="small"
       />
 
@@ -128,6 +129,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
         onCancel={() => {
           setIsModalOpen(false);
           form.resetFields();
+          onClose?.();
         }}
         onOk={handleOk}
         confirmLoading={addMutation.isPending}

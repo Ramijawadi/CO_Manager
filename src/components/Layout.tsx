@@ -99,7 +99,7 @@ const AppLayout: React.FC = () => {
   };
 
   return (
-    <AntLayout style={{ height: '97vh', overflow: 'hidden' }}>
+    <AntLayout style={{ height: '100vh', overflow: 'hidden' }}>
       <Sider
         collapsible
         collapsed={collapsed}
@@ -246,7 +246,7 @@ const AppLayout: React.FC = () => {
       <AntLayout style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
         <Header
           style={{
-            padding: '0 32px',
+            padding: '0 20px',
             background: '#ffffff',
             display: 'flex',
             justifyContent: 'space-between',
@@ -334,15 +334,12 @@ const AppLayout: React.FC = () => {
           </div>
         )}
 
-        <Content style={{ margin: '24px 28px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Content style={{ margin: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div
             className="animate-fade-in"
             style={{
               height: '100%',
               background: colorBgContainer,
-              borderRadius: 16,
-              border: '1px solid #f1f5f9',
-              padding: 28,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',

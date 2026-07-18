@@ -1,53 +1,82 @@
-import { useState, useCallback } from 'react';
-import { useRealtimeTable } from './useRealtimeTable';
+import { useState, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '../lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type RealtimeStatus = 'connected' | 'disconnected' | 'error';
 
 /**
- * Hook that manages all real-time subscriptions for the Dashboard page.
- * Subscribes to sessions, subscriptions, session_products, and products tables.
- * Returns the connection status for displaying a live indicator.
+ * Single channel subscription for all dashboard real-time data.
+ * Listens to sessions, session_products, subscriptions, and products
+ * and invalidates the relevant React Query caches.
  */
 export function useDashboardRealtime() {
   const [status, setStatus] = useState<RealtimeStatus>('disconnected');
+  const queryClient = useQueryClient();
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  const onStatusChange = useCallback((s: RealtimeStatus) => {
-    setStatus(s);
-  }, []);
+  useEffect(() => {
+    const channel = supabase.channel('dashboard-realtime');
 
-  // Each unique (queryKey, tables) pair gets its own channel.
-  // Combine multiple table filters into one call per queryKey.
+    // Sessions changes -> invalidate stats, active sessions list, charts
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'sessions' },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        queryClient.invalidateQueries({ queryKey: ['activeSessionsList'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboardCharts'] });
+      }
+    );
 
-  // Dashboard stats: invalidate on sessions or subscriptions changes
-  useRealtimeTable(
-    ['dashboardStats'],
-    [
-      { event: '*', table: 'sessions' },
-      { event: '*', table: 'subscriptions' },
-    ],
-    { onStatusChange }
-  );
+    // Subscriptions changes -> invalidate stats
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'subscriptions' },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+      }
+    );
 
-  // Dashboard stats + top products: invalidate on product sales changes
-  useRealtimeTable(
-    ['dashboardStats', 'topProducts'],
-    [{ event: '*', table: 'session_products' }]
-  );
+    // Session products changes -> invalidate stats, top products, charts
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'session_products' },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['dashboardStats'] });
+        queryClient.invalidateQueries({ queryKey: ['topProducts'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboardCharts'] });
+      }
+    );
 
-  // Top products: invalidate on product catalog changes
-  useRealtimeTable(
-    ['topProducts'],
-    [{ event: '*', table: 'products' }]
-  );
+    // Products catalog changes -> invalidate top products
+    channel.on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'products' },
+      () => {
+        queryClient.invalidateQueries({ queryKey: ['topProducts'] });
+      }
+    );
 
-  // Dashboard charts: invalidate on session + product sales changes
-  useRealtimeTable(
-    ['dashboardCharts'],
-    [
-      { event: '*', table: 'sessions' },
-      { event: '*', table: 'session_products' },
-    ]
-  );
+    channel.subscribe((subStatus) => {
+      if (subStatus === 'SUBSCRIBED') {
+        setStatus('connected');
+      } else if (subStatus === 'CHANNEL_ERROR') {
+        setStatus('error');
+      } else if (subStatus === 'TIMED_OUT') {
+        setStatus('disconnected');
+      }
+    });
+
+    channelRef.current = channel;
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [queryClient]);
 
   return { status };
 }

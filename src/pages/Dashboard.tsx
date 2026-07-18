@@ -197,7 +197,7 @@ const Dashboard: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto', padding: 16 }}>
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
@@ -357,7 +357,7 @@ const Dashboard: React.FC = () => {
               dataSource={activeSessions}
               columns={sessionColumns}
               rowKey="id"
-              pagination={false}
+              pagination={{ defaultPageSize: 5 }}
               size="small"
               locale={{ emptyText: 'Aucune session active' }}
               style={{ borderRadius: 10 }}
@@ -379,7 +379,7 @@ const Dashboard: React.FC = () => {
               dataSource={topProducts}
               columns={productColumns}
               rowKey="product_id"
-              pagination={false}
+              pagination={{ defaultPageSize: 5 }}
               size="small"
               locale={{ emptyText: 'Aucune vente aujourd\'hui' }}
               style={{ borderRadius: 10 }}

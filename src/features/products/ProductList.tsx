@@ -126,9 +126,9 @@ const ProductList: React.FC = () => {
           dataSource={filteredProducts}
           rowKey="id"
           loading={isLoading}
-          pagination={{ defaultPageSize: 10, size: 'small' }}
+          pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}` }}
           style={{ height: '100%' }}
-          scroll={{ y: 'calc(100vh - 300px)' }}
+
         />
       </div>
 

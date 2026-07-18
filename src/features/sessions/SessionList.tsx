@@ -16,6 +16,7 @@ const SessionList: React.FC = () => {
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [visitorMode, setVisitorMode] = useState(false);
   const [form] = Form.useForm();
+  const [expandedRowKeys, setExpandedRowKeys] = useState<React.Key[]>([]);
 
   // Queries
   const { data: sessions = [], isLoading } = useQuery({
@@ -206,11 +207,14 @@ const SessionList: React.FC = () => {
           dataSource={sessions}
           rowKey="id"
           loading={isLoading}
-          pagination={false}
-          style={{ height: '100%' }}
-          scroll={{ y: 'calc(100vh - 300px)' }}
+          pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} session${total > 1 ? 's' : ''}` }}
+
           expandable={{
-            expandedRowRender: (record) => <SessionConsumptionPanel session={record} />,
+            expandedRowRender: (record) => (
+              <SessionConsumptionPanel session={record} onClose={() => setExpandedRowKeys([])} />
+            ),
+            expandedRowKeys,
+            onExpandedRowChange: (keys: React.Key[]) => setExpandedRowKeys(keys),
             rowExpandable: () => true,
           }}
         />

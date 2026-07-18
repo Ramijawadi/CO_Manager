@@ -46,7 +46,7 @@ const Settings: React.FC = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: 16 }}>
       <div style={{ marginBottom: 20, flexShrink: 0 }}>
         <Text style={{ fontSize: 15, color: '#64748b' }}>
           Configurez les paramètres de votre espace

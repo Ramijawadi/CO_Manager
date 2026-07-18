@@ -290,21 +290,18 @@ const SubscriptionList: React.FC = () => {
         </Row>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table
           columns={columns}
           dataSource={subscriptions}
           rowKey="id"
           loading={isLoading}
           pagination={{
-            defaultPageSize: 10,
-            size: 'small',
+            defaultPageSize: 5,
             showTotal: (total) => `Total: ${total} abonnement${total > 1 ? 's' : ''}`,
             showSizeChanger: true,
-            pageSizeOptions: ['10', '20', '50', '100']
+            pageSizeOptions: ['5', '10', '20', '50']
           }}
-          style={{ height: '100%' }}
-          scroll={{ x: 1000, y: 'calc(100vh - 420px)' }}
         />
       </div>
 

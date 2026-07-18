@@ -106,7 +106,7 @@ const Reports: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
         <Text style={{ fontSize: 15, color: '#64748b' }}>
           Analysez vos données et archivage des journées
@@ -168,9 +168,9 @@ const Reports: React.FC = () => {
             columns={columns}
             dataSource={closures}
             rowKey="id"
-            pagination={{ pageSize: 5, size: 'small' }}
+            pagination={{ pageSize: 5, showTotal: (total: number) => `Total: ${total} journ\u00e9e${total > 1 ? 's' : ''}` }}
             style={{ height: '100%' }}
-            scroll={{ y: 'calc(100vh - 480px)' }}
+
           />
         </div>
       </Card>
