@@ -1,17 +1,20 @@
 import React, { useEffect } from 'react';
-import { Card, Form, InputNumber, Button, Typography, message, Spin } from 'antd';
+import { Card, Form, InputNumber, Typography, message, Spin } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings } from '../features/settings/api';
 import type { SettingsInput } from '../features/settings/types';
 import { useRoleGuard } from '../hooks/useRoleGuard';
+import { AuthButton } from '../components/AuthButton';
+import { usePermissions } from '../hooks/usePermissions';
 
 const { Text } = Typography;
 
 const Settings: React.FC = () => {
-  useRoleGuard(['admin']);
+  useRoleGuard(['admin', 'demo']);
 
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
+  const { requireAdmin } = usePermissions();
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
@@ -34,6 +37,7 @@ const Settings: React.FC = () => {
   });
 
   const handleFinish = (values: SettingsInput) => {
+    if (!requireAdmin()) return;
     updateMutation.mutate(values);
   };
 
@@ -71,9 +75,9 @@ const Settings: React.FC = () => {
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={updateMutation.isPending}>
+            <AuthButton type="primary" htmlType="submit" loading={updateMutation.isPending}>
               Enregistrer
-            </Button>
+            </AuthButton>
           </Form.Item>
         </Form>
       </Card>

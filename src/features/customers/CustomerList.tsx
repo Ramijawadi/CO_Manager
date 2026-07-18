@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Table, Button, Input, Space, Popconfirm, message } from 'antd';
+import { Table, Input, Space, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getCustomers, createCustomer, updateCustomer, deleteCustomer } from './api';
 import CustomerForm from './CustomerForm';
 import type { Customer, CustomerInput } from './types';
+import { AuthButton } from '../../components/AuthButton';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const CustomerList: React.FC = () => {
   const queryClient = useQueryClient();
+  const { isDemo, requireAdmin } = usePermissions();
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
@@ -58,20 +61,24 @@ const CustomerList: React.FC = () => {
 
   // Handlers
   const handleAdd = () => {
+    if (!requireAdmin()) return;
     setEditingCustomer(undefined);
     setIsModalOpen(true);
   };
 
   const handleEdit = (customer: Customer) => {
+    if (!requireAdmin()) return;
     setEditingCustomer(customer);
     setIsModalOpen(true);
   };
 
   const handleDelete = (id: string) => {
+    if (!requireAdmin()) return;
     deleteMutation.mutate(id);
   };
 
   const handleModalSubmit = (values: CustomerInput) => {
+    if (!requireAdmin()) return;
     if (editingCustomer) {
       updateMutation.mutate({ id: editingCustomer.id, ...values });
     } else {
@@ -112,20 +119,24 @@ const CustomerList: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Customer) => (
         <Space size="middle">
-          <Button 
+          <AuthButton 
             type="text" 
             icon={<EditOutlined />} 
             onClick={() => handleEdit(record)}
           />
-          <Popconfirm
-            title="Supprimer le visiteur"
-            description="Êtes-vous sûr de vouloir supprimer ce visiteur ?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Oui"
-            cancelText="Non"
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
-          </Popconfirm>
+          {isDemo ? (
+            <AuthButton type="text" danger icon={<DeleteOutlined />} />
+          ) : (
+            <Popconfirm
+              title="Supprimer le visiteur"
+              description="Êtes-vous sûr de vouloir supprimer ce visiteur ?"
+              onConfirm={() => handleDelete(record.id)}
+              okText="Oui"
+              cancelText="Non"
+            >
+              <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -142,12 +153,12 @@ const CustomerList: React.FC = () => {
           style={{ width: 300 }}
           allowClear
         />
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <AuthButton type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           Nouveau visiteur
-        </Button>
+        </AuthButton>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Table
           columns={columns}
           dataSource={filteredCustomers}
@@ -155,6 +166,7 @@ const CustomerList: React.FC = () => {
           loading={isLoading}
           pagination={{ defaultPageSize: 10, size: 'small' }}
           style={{ height: '100%' }}
+          scroll={{ y: 'calc(100vh - 300px)' }}
         />
       </div>
 

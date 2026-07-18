@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Table, Button, Space, Popconfirm, message, Tag, Card, Row, Col, Statistic } from 'antd';
+import { Table, Space, Popconfirm, message, Tag, Card, Row, Col, Statistic } from 'antd';
 import { DeleteOutlined, PlusOutlined, StopOutlined, UserOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSubscriptions, createSubscription, deleteSubscription, updateSubscription } from './api';
 import { getCustomers } from '../customers/api';
 import SubscriptionForm from './SubscriptionForm';
 import type { Subscription, SubscriptionInput } from './types';
+import { AuthButton } from '../../components/AuthButton';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const SubscriptionList: React.FC = () => {
   const queryClient = useQueryClient();
+  const { requireAdmin, isDemo } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Queries
@@ -61,6 +64,7 @@ const SubscriptionList: React.FC = () => {
   });
 
   const handleModalSubmit = (values: SubscriptionInput) => {
+    if (!requireAdmin()) return;
     createMutation.mutate(values);
   };
 
@@ -197,25 +201,33 @@ const SubscriptionList: React.FC = () => {
       render: (_: any, record: Subscription) => (
         <Space size="middle">
           {record.status !== 'cancelled' && (
+            isDemo ? (
+              <AuthButton type="text" danger icon={<StopOutlined />} title="Annuler" />
+            ) : (
+              <Popconfirm
+                title="Annuler l'abonnement"
+                description="Êtes-vous sûr de vouloir annuler ?"
+                onConfirm={() => cancelMutation.mutate(record.id)}
+                okText="Oui"
+                cancelText="Non"
+              >
+                <AuthButton type="text" danger icon={<StopOutlined />} title="Annuler" />
+              </Popconfirm>
+            )
+          )}
+          {isDemo ? (
+            <AuthButton type="text" danger icon={<DeleteOutlined />} />
+          ) : (
             <Popconfirm
-              title="Annuler l'abonnement"
-              description="Êtes-vous sûr de vouloir annuler ?"
-              onConfirm={() => cancelMutation.mutate(record.id)}
+              title="Supprimer l'abonnement"
+              description="Êtes-vous sûr de vouloir supprimer cet enregistrement ?"
+              onConfirm={() => deleteMutation.mutate(record.id)}
               okText="Oui"
               cancelText="Non"
             >
-              <Button type="text" danger icon={<StopOutlined />} title="Annuler" />
+              <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
           )}
-          <Popconfirm
-            title="Supprimer l'abonnement"
-            description="Êtes-vous sûr de vouloir supprimer cet enregistrement ?"
-            onConfirm={() => deleteMutation.mutate(record.id)}
-            okText="Oui"
-            cancelText="Non"
-          >
-            <Button type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
-          </Popconfirm>
         </Space>
       ),
     },
@@ -226,9 +238,12 @@ const SubscriptionList: React.FC = () => {
       <div style={{ marginBottom: 16, flexShrink: 0, paddingTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#0f172a' }}>Gestion des Abonnements</h2>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+          <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
+            if (!requireAdmin()) return;
+            setIsModalOpen(true);
+          }}>
             Nouvel abonnement
-          </Button>
+          </AuthButton>
         </div>
 
         {/* Statistics Cards */}

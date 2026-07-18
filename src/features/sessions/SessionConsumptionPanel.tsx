@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Table, Button, Modal, Form, Select, InputNumber, message, Popconfirm, Typography } from 'antd';
+import { Table, Modal, Form, Select, InputNumber, message, Popconfirm, Typography } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getProducts } from '../products/api';
 import { addSessionProduct, removeSessionProduct } from './api';
 import type { Session, SessionProduct } from './types';
 import type { Product } from '../products/types';
+import { AuthButton } from '../../components/AuthButton';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const { Text } = Typography;
 
@@ -15,6 +17,7 @@ interface Props {
 
 const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
   const queryClient = useQueryClient();
+  const { requireAdmin, isDemo } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
   
@@ -49,10 +52,12 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
   });
 
   const handleOk = () => {
+    if (!requireAdmin()) return;
     form.submit();
   };
 
   const handleFinish = (values: any) => {
+    if (!requireAdmin()) return;
     if (!selectedProduct) return;
     const total_price = selectedProduct.price * values.quantity;
     addMutation.mutate({ ...values, total_price });
@@ -79,14 +84,18 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
       title: '',
       key: 'action',
       render: (_: any, record: SessionProduct) => (
-        <Popconfirm
-          title="Retirer le produit"
-          onConfirm={() => removeMutation.mutate(record.id)}
-          okText="Oui"
-          cancelText="Non"
-        >
-          <Button type="text" danger icon={<DeleteOutlined />} loading={removeMutation.isPending && removeMutation.variables === record.id} />
-        </Popconfirm>
+        isDemo ? (
+          <AuthButton type="text" danger icon={<DeleteOutlined />} />
+        ) : (
+          <Popconfirm
+            title="Retirer le produit"
+            onConfirm={() => removeMutation.mutate(record.id)}
+            okText="Oui"
+            cancelText="Non"
+          >
+            <AuthButton type="text" danger icon={<DeleteOutlined />} loading={removeMutation.isPending && removeMutation.variables === record.id} />
+          </Popconfirm>
+        )
       ),
     },
   ];
@@ -97,9 +106,12 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
     <div style={{ padding: '0 24px 16px 24px', background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 8 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0' }}>
         <Text strong>Produits Consommés (Total : {totalConsumption.toFixed(2)} DT)</Text>
-        <Button size="small" type="dashed" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>
+        <AuthButton size="small" type="dashed" icon={<PlusOutlined />} onClick={() => {
+          if (!requireAdmin()) return;
+          setIsModalOpen(true);
+        }}>
           Ajouter un produit
-        </Button>
+        </AuthButton>
       </div>
 
       <Table
@@ -119,6 +131,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session }) => {
         }}
         onOk={handleOk}
         confirmLoading={addMutation.isPending}
+        okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
       >
         <Form form={form} layout="vertical" initialValues={{ quantity: 1 }} onFinish={handleFinish}>
           <Form.Item

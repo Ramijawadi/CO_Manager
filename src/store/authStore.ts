@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Session, User } from '@supabase/supabase-js';
 
-type Role = 'admin' | 'staff' | null;
+type Role = 'admin' | 'staff' | 'demo' | null;
 
 interface AuthState {
   session: Session | null;

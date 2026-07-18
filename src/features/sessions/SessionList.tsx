@@ -7,9 +7,12 @@ import { getCustomers, createCustomer } from '../customers/api';
 import type { Session } from './types';
 import { calculateDuration, calculateTimeCost } from '../../utils/time';
 import SessionConsumptionPanel from './SessionConsumptionPanel';
+import { AuthButton } from '../../components/AuthButton';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const SessionList: React.FC = () => {
   const queryClient = useQueryClient();
+  const { requireAdmin, isDemo } = usePermissions();
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [visitorMode, setVisitorMode] = useState(false);
   const [form] = Form.useForm();
@@ -63,6 +66,7 @@ const SessionList: React.FC = () => {
   } | null>(null);
 
   const handleInitiateCheckout = async (session: Session) => {
+    if (!requireAdmin()) return;
     const exitTime = new Date().toISOString();
     const durationHours = calculateDuration(session.entry_time, exitTime);
     let timeCost = 0;
@@ -95,6 +99,7 @@ const SessionList: React.FC = () => {
   };
 
   const handleConfirmCheckout = () => {
+    if (!requireAdmin()) return;
     if (!checkoutDetails) return;
     const { session, timeCost } = checkoutDetails;
 
@@ -109,10 +114,12 @@ const SessionList: React.FC = () => {
   };
 
   const handleCheckInSubmit = () => {
+    if (!requireAdmin()) return;
     form.submit();
   };
 
   const handleCheckInFinish = (values: any) => {
+    if (!requireAdmin()) return;
     if (visitorMode) {
       // Create quick visitor first
       const payload: any = {
@@ -169,14 +176,14 @@ const SessionList: React.FC = () => {
       title: 'Action',
       key: 'action',
       render: (_: any, record: Session) => (
-        <Button 
+        <AuthButton 
           type="primary" 
           danger 
           icon={<CheckCircleOutlined />} 
           onClick={() => handleInitiateCheckout(record)}
         >
           Clôturer
-        </Button>
+        </AuthButton>
       ),
     },
   ];
@@ -185,12 +192,15 @@ const SessionList: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingTop: 20 }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>Sessions Actives</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsCheckInModalOpen(true)}>
+        <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
+          if (!requireAdmin()) return;
+          setIsCheckInModalOpen(true);
+        }}>
           Nouvelle session
-        </Button>
+        </AuthButton>
       </div>
 
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Table
           columns={columns}
           dataSource={sessions}
@@ -198,6 +208,7 @@ const SessionList: React.FC = () => {
           loading={isLoading}
           pagination={false}
           style={{ height: '100%' }}
+          scroll={{ y: 'calc(100vh - 300px)' }}
           expandable={{
             expandedRowRender: (record) => <SessionConsumptionPanel session={record} />,
             rowExpandable: () => true,
@@ -215,6 +226,7 @@ const SessionList: React.FC = () => {
         }}
         onOk={handleCheckInSubmit}
         confirmLoading={checkInMutation.isPending || quickVisitorMutation.isPending}
+        okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
       >
         <Form form={form} layout="vertical" onFinish={handleCheckInFinish}>
           <div style={{ marginBottom: 16 }}>
@@ -274,6 +286,7 @@ const SessionList: React.FC = () => {
         onOk={handleConfirmCheckout}
         okText="Confirmer et Terminer"
         confirmLoading={checkoutMutation.isPending}
+        okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
       >
         {checkoutDetails && (
           <div style={{ fontSize: '16px' }}>

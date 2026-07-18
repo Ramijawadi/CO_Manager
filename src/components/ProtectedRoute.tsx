@@ -43,7 +43,7 @@ const ProtectedRoute: React.FC = () => {
         if (error || !data) {
           setRole('staff');
         } else {
-          setRole(data.role as 'admin' | 'staff');
+          setRole(data.role as 'admin' | 'staff' | 'demo');
         }
       }
 
@@ -60,7 +60,7 @@ const ProtectedRoute: React.FC = () => {
           .select('role')
           .eq('id', newSession.user.id)
           .single();
-        setRole((data?.role as 'admin' | 'staff') || 'staff');
+        setRole((data?.role as 'admin' | 'staff' | 'demo') || 'staff');
       } else {
         setRole(null);
       }

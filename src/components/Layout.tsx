@@ -208,10 +208,10 @@ const AppLayout: React.FC = () => {
               </div>
               <div style={{ overflow: 'hidden', flex: 1 }}>
                 <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {role === 'admin' ? 'Administrateur' : 'Staff'}
+                  {role === 'admin' ? 'Administrateur' : role === 'demo' ? 'Demo' : 'Staff'}
                 </div>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                  {role === 'admin' ? 'Accès complet' : 'Accès limité'}
+                  {role === 'admin' ? 'Accès complet' : role === 'demo' ? 'Lecture seule' : 'Accès limité'}
                 </div>
               </div>
             </div>
@@ -292,10 +292,10 @@ const AppLayout: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
-                    {role === 'admin' ? 'Admin' : 'Staff'}
+                    {role === 'admin' ? 'Admin' : role === 'demo' ? 'Demo' : 'Staff'}
                   </div>
                   <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.2 }}>
-                    {role === 'admin' ? 'Administrateur' : 'Employé'}
+                    {role === 'admin' ? 'Administrateur' : role === 'demo' ? 'Lecture seule' : 'Employé'}
                   </div>
                 </div>
                 <DownOutlined style={{ fontSize: 10, color: '#94a3b8' }} />
@@ -303,6 +303,37 @@ const AppLayout: React.FC = () => {
             </Dropdown>
           </Space>
         </Header>
+        
+        {role === 'demo' && (
+          <div style={{
+            background: '#eef2ff',
+            borderBottom: '1px solid #c7d2fe',
+            padding: '10px 32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 12,
+            color: '#4338ca',
+            fontSize: 14,
+            fontWeight: 500,
+            zIndex: 98
+          }}>
+            <span style={{ 
+              background: '#4f46e5', 
+              color: 'white', 
+              padding: '2px 8px', 
+              borderRadius: 6, 
+              fontSize: 11, 
+              fontWeight: 700,
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase'
+            }}>
+              Portfolio Demo Mode
+            </span>
+            You are exploring a read-only version of the application. Administrative actions are disabled.
+          </div>
+        )}
+
         <Content style={{ margin: '24px 28px', overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>
           <div
             className="animate-fade-in"
