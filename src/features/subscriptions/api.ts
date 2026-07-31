@@ -18,7 +18,6 @@ export const getSubscriptions = async (): Promise<Subscription[]> => {
   if (!subs || subs.length === 0) return [];
 
   const customerIds = [...new Set(subs.map(s => s.customer_id))];
-  const planIds = [...new Set(subs.map(s => s.plan_id).filter(Boolean))];
 
   const [customersResult, allPlans] = await Promise.all([
     customerIds.length > 0
