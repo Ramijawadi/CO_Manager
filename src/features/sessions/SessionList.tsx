@@ -207,8 +207,11 @@ const SessionList: React.FC = () => {
           dataSource={sessions}
           rowKey="id"
           loading={isLoading}
-          pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} session${total > 1 ? 's' : ''}` }}
-
+          pagination={{ 
+            defaultPageSize: 5, 
+            showTotal: (total) => `Total: ${total} session${total > 1 ? 's' : ''}`,
+            style: { marginTop: '16px' }
+          }}
           expandable={{
             expandedRowRender: (record) => (
               <SessionConsumptionPanel session={record} onClose={() => setExpandedRowKeys([])} />
@@ -216,7 +219,9 @@ const SessionList: React.FC = () => {
             expandedRowKeys,
             onExpandedRowsChange: (keys: readonly React.Key[]) => setExpandedRowKeys([...keys]),
             rowExpandable: () => true,
+            expandRowByClick: false,
           }}
+          style={{ background: '#ffffff' }}
         />
       </div>
 
@@ -298,11 +303,11 @@ const SessionList: React.FC = () => {
             {checkoutDetails.isSubscribed ? (
               <p style={{ color: 'green' }}>✓ Couvert par un abonnement actif</p>
             ) : (
-              <p><strong>Coût de temps :</strong> {checkoutDetails.timeCost.toFixed(2)} DT</p>
+              <p><strong>Coût de temps :</strong> {checkoutDetails.timeCost.toFixed(3)} DT</p>
             )}
-            <p><strong>Coût des produits :</strong> {checkoutDetails.productCost.toFixed(2)} DT</p>
+            <p><strong>Coût des produits :</strong> {checkoutDetails.productCost.toFixed(3)} DT</p>
             <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
-              <h3><strong>Total à payer :</strong> {(checkoutDetails.timeCost + checkoutDetails.productCost).toFixed(2)} DT</h3>
+              <h3><strong>Total à payer :</strong> {(checkoutDetails.timeCost + checkoutDetails.productCost).toFixed(3)} DT</h3>
             </div>
           </div>
         )}

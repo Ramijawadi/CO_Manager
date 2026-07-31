@@ -76,9 +76,11 @@ const SubscriptionList: React.FC = () => {
   const expiredCount = subscriptions.filter(s => 
     s.end_date < today && s.status !== 'cancelled'
   ).length;
-  const totalRevenue = subscriptions
-    .filter(s => s.status === 'active' || s.end_date >= today)
-    .reduce((acc, s) => acc + (s.plans?.price || 0), 0);
+  // Somme de tous les montants d'abonnement, quel que soit leur statut.
+  const totalSubscriptionAmount = subscriptions.reduce(
+    (total, subscription) => total + (Number(subscription.plans?.price) || 0),
+    0,
+  );
 
   const columns = [
     {
@@ -113,7 +115,9 @@ const SubscriptionList: React.FC = () => {
             {record.plans?.name || 'N/A'}
           </div>
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            {record.plans?.duration_days} jours • {record.plans?.price} DT
+            {record.plans?.duration_days ?? 'N/A'} jours • {record.plans?.price == null
+              ? 'N/A'
+              : `${Number(record.plans.price).toFixed(3)} DT`}
           </div>
         </div>
       ),
@@ -280,8 +284,8 @@ const SubscriptionList: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
-                title="Revenu Actif"
-                value={totalRevenue}
+                title="Montant total des abonnements"
+                value={totalSubscriptionAmount.toFixed(3)}
                 suffix="DT"
                 valueStyle={{ color: '#8b5cf6', fontSize: 20 }}
               />

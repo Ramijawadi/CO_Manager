@@ -95,14 +95,14 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
             placeholder="Sélectionner un plan"
             options={plans.map(p => ({
               value: p.id,
-              label: `${p.name} (${p.duration_days} jours - ${p.price} DT)`,
+              label: `${p.name} (${p.duration_days} jours - ${p.price.toFixed(3)} DT)`,
             }))}
           />
         </Form.Item>
         {selectedPlan && (
           <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #f1f5f9' }}>
             <div style={{ fontSize: 13, color: '#64748b' }}>
-              Durée: <strong>{selectedPlan.duration_days} jours</strong> | Prix: <strong>{selectedPlan.price} DT</strong>
+              Durée: <strong>{selectedPlan.duration_days} jours</strong> | Prix: <strong>{selectedPlan.price.toFixed(3)} DT</strong>
             </div>
           </div>
         )}

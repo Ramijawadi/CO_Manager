@@ -62,7 +62,7 @@ const metricCards = [
     color: '#d97706',
     bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
     suffix: ' DT',
-    precision: 2,
+    precision: 3,
   },
   {
     title: 'Abonnements actifs',
@@ -235,7 +235,7 @@ const Dashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div style={{ minWidth: 0 }}>
-                <Text style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <Text style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {card.title}
                 </Text>
                 <div style={{ marginTop: 10 }}>

@@ -69,21 +69,32 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
       title: 'Produit',
       dataIndex: ['products', 'name'],
       key: 'name',
+      width: '45%',
     },
     {
       title: 'Quantité',
       dataIndex: 'quantity',
       key: 'quantity',
+      width: '20%',
+      align: 'center' as const,
     },
     {
       title: 'Prix Total',
       dataIndex: 'total_price',
       key: 'total_price',
-      render: (val: number) => `${val.toFixed(2)} DT`,
+      width: '25%',
+      align: 'right' as const,
+      render: (val: number) => (
+        <Text strong style={{ color: '#059669' }}>
+          {val.toFixed(3)} DT
+        </Text>
+      ),
     },
     {
       title: '',
       key: 'action',
+      width: '10%',
+      align: 'center' as const,
       render: (_: any, record: SessionProduct) => (
         isDemo ? (
           <AuthButton type="text" danger icon={<DeleteOutlined />} />
@@ -104,10 +115,26 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
   const totalConsumption = (session.session_products || []).reduce((acc, curr) => acc + curr.total_price, 0);
 
   return (
-    <div style={{ padding: '0 24px 16px 24px', background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 8 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0' }}>
-        <Text strong>Produits Consommés (Total : {totalConsumption.toFixed(2)} DT)</Text>
-        <AuthButton size="small" type="dashed" icon={<PlusOutlined />} onClick={() => {
+    <div style={{ 
+      padding: '24px 32px', 
+      background: '#ffffff', 
+      border: '1px solid #e5e7eb', 
+      borderRadius: 8,
+      margin: '8px 0',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: '20px',
+        paddingBottom: '16px',
+        borderBottom: '1px solid #f0f0f0'
+      }}>
+        <Text strong style={{ fontSize: '15px', color: '#0f172a' }}>
+          Produits Consommés (Total : {totalConsumption.toFixed(3)} DT)
+        </Text>
+        <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
           if (!requireAdmin()) return;
           setIsModalOpen(true);
         }}>
@@ -119,8 +146,11 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         dataSource={session.session_products || []}
         columns={columns}
         rowKey="id"
-        pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}` }}
-        size="small"
+        pagination={{ 
+          defaultPageSize: 5, 
+          showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}`,
+          style: { marginTop: '16px' }
+        }}
       />
 
       <Modal
@@ -134,8 +164,15 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         onOk={handleOk}
         confirmLoading={addMutation.isPending}
         okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
+        width={520}
       >
-        <Form form={form} layout="vertical" initialValues={{ quantity: 1 }} onFinish={handleFinish}>
+        <Form 
+          form={form} 
+          layout="vertical" 
+          initialValues={{ quantity: 1 }} 
+          onFinish={handleFinish}
+          style={{ padding: '20px 0' }}
+        >
           <Form.Item
             name="product_id"
             label="Sélectionner un produit"
@@ -145,12 +182,13 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
               showSearch
               placeholder="Rechercher un produit"
               optionFilterProp="children"
+              size="large"
               filterOption={(input, option) =>
                 (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
               }
               options={products.map((p: Product) => ({ 
                 value: p.id, 
-                label: `${p.name} - ${p.price.toFixed(2)} DT` 
+                label: `${p.name} - ${p.price.toFixed(3)} DT` 
               }))}
             />
           </Form.Item>
@@ -160,13 +198,19 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
             label="Quantité"
             rules={[{ required: true, message: 'Veuillez spécifier la quantité' }]}
           >
-            <InputNumber min={1} style={{ width: '100%' }} />
+            <InputNumber min={1} style={{ width: '100%' }} size="large" />
           </Form.Item>
 
           {selectedProduct && (
-            <div style={{ marginTop: 8, textAlign: 'right' }}>
-              <Text type="secondary">
-                Total: {(selectedProduct.price * (form.getFieldValue('quantity') || 1)).toFixed(2)} DT
+            <div style={{ 
+              marginTop: 16, 
+              padding: '12px 16px',
+              background: '#f8fafc',
+              borderRadius: 6,
+              textAlign: 'right'
+            }}>
+              <Text strong style={{ fontSize: '16px', color: '#0f172a' }}>
+                Total: {(selectedProduct.price * (form.getFieldValue('quantity') || 1)).toFixed(3)} DT
               </Text>
             </div>
           )}
