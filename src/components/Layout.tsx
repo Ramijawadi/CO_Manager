@@ -61,6 +61,11 @@ const AppLayout: React.FC = () => {
       icon: <ShoppingOutlined />,
       label: 'Produits',
     },
+    {
+      key: '/settings',
+      icon: <SettingOutlined />,
+      label: 'Paramètres',
+    },
   ];
 
   if (role === 'admin') {
@@ -69,11 +74,6 @@ const AppLayout: React.FC = () => {
         key: '/reports',
         icon: <BarChartOutlined />,
         label: 'Rapports',
-      },
-      {
-        key: '/settings',
-        icon: <SettingOutlined />,
-        label: 'Paramètres',
       }
     );
   }

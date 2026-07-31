@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import type { Subscription, SubscriptionInput } from './types';
+import { getPlans } from '../plans/api';
 
 export const getSubscriptions = async (): Promise<Subscription[]> => {
   console.log('Fetching all subscriptions...');
@@ -19,23 +20,27 @@ export const getSubscriptions = async (): Promise<Subscription[]> => {
   const customerIds = [...new Set(subs.map(s => s.customer_id))];
   const planIds = [...new Set(subs.map(s => s.plan_id).filter(Boolean))];
 
-  const [customersResult, plansResult] = await Promise.all([
+  const [customersResult, allPlans] = await Promise.all([
     customerIds.length > 0
       ? supabase.from('customers').select('id, full_name, email, phone').in('id', customerIds)
       : { data: [], error: null },
-    planIds.length > 0
-      ? supabase.from('plans').select('id, name, duration_days, price').in('id', planIds)
-      : { data: [], error: null },
+    getPlans(),
   ]);
 
   const customerMap = new Map((customersResult.data || []).map(c => [c.id, c]));
-  const planMap = new Map((plansResult.data || []).map(p => [p.id, p]));
+  const planMap = new Map((allPlans || []).map(p => [p.id, p]));
 
-  return subs.map(s => ({
-    ...s,
-    customers: customerMap.get(s.customer_id) || null,
-    plans: s.plan_id ? planMap.get(s.plan_id) || null : null,
-  }));
+  return subs.map(s => {
+    let plan = s.plan_id ? planMap.get(s.plan_id) : null;
+    if (!plan && s.plan_id) {
+      plan = (allPlans || []).find(p => p.id === s.plan_id || p.name.toLowerCase() === String(s.plan_id).toLowerCase()) || null;
+    }
+    return {
+      ...s,
+      customers: customerMap.get(s.customer_id) || null,
+      plans: plan,
+    };
+  });
 };
 
 export const getActiveSubscription = async (customerId: string): Promise<Subscription | null> => {

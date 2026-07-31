@@ -4,6 +4,7 @@ import { DeleteOutlined, PlusOutlined, StopOutlined, UserOutlined, CheckCircleOu
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSubscriptions, createSubscription, deleteSubscription, updateSubscription } from './api';
 import { getCustomers } from '../customers/api';
+import { getPlans } from '../plans/api';
 import SubscriptionForm from './SubscriptionForm';
 import type { Subscription, SubscriptionInput } from './types';
 import { AuthButton } from '../../components/AuthButton';
@@ -32,6 +33,11 @@ const SubscriptionList: React.FC = () => {
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
     queryFn: getCustomers,
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ['plans'],
+    queryFn: getPlans,
   });
 
   // Mutations
@@ -77,10 +83,10 @@ const SubscriptionList: React.FC = () => {
     s.end_date < today && s.status !== 'cancelled'
   ).length;
   // Somme de tous les montants d'abonnement, quel que soit leur statut.
-  const totalSubscriptionAmount = subscriptions.reduce(
-    (total, subscription) => total + (Number(subscription.plans?.price) || 0),
-    0,
-  );
+  const totalSubscriptionAmount = subscriptions.reduce((total, subscription) => {
+    const plan = subscription.plans || plans.find(p => p.id === subscription.plan_id);
+    return total + (Number(plan?.price) || 0);
+  }, 0);
 
   const columns = [
     {
@@ -251,7 +257,7 @@ const SubscriptionList: React.FC = () => {
         </div>
 
         {/* Statistics Cards */}
-        <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
