@@ -127,6 +127,10 @@ requests to `api/index.mjs` **before** the SPA fallback. The function restores
 the API route and query string, reuses a cached Express app and MongoClient
 across warm invocations, and never starts a listener or background change stream.
 Static assets are served by Vercel; frontend routes fall back to `index.html`.
+The adapter clears Vercel's pre-parsed query so Express validates the restored
+query string without the internal `__path` rewrite parameter. If a dashboard or
+filtered list returns JSON 400 mentioning `Unrecognized key: "__path"`, redeploy
+with the updated adapter; keep strict API validation enabled.
 
 1. Import the repository with the project root set to this directory. Use the
    Vite preset, `npm run build`, and output directory `dist` (configured in

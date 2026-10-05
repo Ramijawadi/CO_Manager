@@ -10,6 +10,8 @@ export function restoreApiPath(req) {
     url.searchParams.delete('__path');
     req.url = `${url.pathname}${url.search}`;
   }
+  // Let Express parse the restored URL instead of Vercel's cached rewrite query.
+  if (Object.hasOwn(req, 'query')) delete req.query;
 }
 
 export function createVercelHandler({ connect = connectDatabase, buildApp = createApp } = {}) {

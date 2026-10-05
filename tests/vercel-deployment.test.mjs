@@ -39,6 +39,71 @@ test('API rewrite restores nested paths and preserves query filters without inte
   assert.equal(direct.url, '/api/auth/login');
 });
 
+test('Vercel pre-parsed queries do not leak rewrite parameters into strict API validation', async t => {
+  const token = 'a'.repeat(64);
+  const user = { id: '12345678-1234-1234-1234-123456789abc', email: 'test@example.com', role: 'admin' };
+  const filters = [];
+  const db = {
+    collection: name => {
+      if (name === 'users') return { findOne: async () => user };
+      if (name === 'auth_sessions') return { findOne: async filter => {
+        assert.equal(filter.token_hash, tokenHash(token));
+        return { id: 'auth-session', user_id: user.id };
+      } };
+      return {
+        find: filter => {
+          filters.push({ name, filter });
+          return { sort() { return this; }, toArray: async () => [] };
+        },
+        countDocuments: async filter => {
+          filters.push({ name, filter });
+          return name === 'subscriptions' ? 2 : 3;
+        },
+      };
+    },
+  };
+  const handler = createVercelHandler({ connect: async () => ({ db, client: {} }) });
+  const base = await startServer((req, res) => {
+    const query = Object.fromEntries(new URL(req.url, 'http://localhost').searchParams);
+    Object.defineProperty(req, 'query', { configurable: true, get: () => query });
+    return handler(req, res);
+  }, t);
+  const headers = { Cookie: `co_manager_session=${token}` };
+  const query = 'since=2026-10-04T23%3A00%3A00.000Z&active_on=2026-10-05';
+  for (const path of [
+    `/api/index?__path=dashboard%2Fdata&${query}`,
+    `/api/dashboard/data?${query}`,
+  ]) {
+    const response = await fetch(`${base}${path}`, { headers });
+    const body = await response.json();
+    assert.equal(response.status, 200, JSON.stringify(body));
+    assert.deepEqual(body, {
+      sessions: [], session_products: [], activeSubscriptions: 2, activeSessions: 3,
+    });
+  }
+  assert.deepEqual(filters.slice(0, 4), [
+    { name: 'sessions', filter: { entry_time: { $gte: '2026-10-04T23:00:00.000Z' } } },
+    { name: 'session_products', filter: { created_at: { $gte: '2026-10-04T23:00:00.000Z' } } },
+    { name: 'subscriptions', filter: {
+      status: 'active', start_date: { $lte: '2026-10-05' }, end_date: { $gte: '2026-10-05' },
+    } },
+    { name: 'sessions', filter: { status: 'active' } },
+  ]);
+  const subscriptions = await fetch(`${base}/api/index?__path=subscriptions&status=active&active_on=2026-10-05`, { headers });
+  assert.equal(subscriptions.status, 200);
+  assert.deepEqual(await subscriptions.json(), []);
+  for (const invalid of [
+    `${query}&unexpected=value`,
+    'since=invalid&active_on=2026-10-05',
+    'since=2026-10-04T23%3A00%3A00.000Z',
+    `${query}&active_on=2026-10-06`,
+  ]) {
+    const response = await fetch(`${base}/api/index?__path=dashboard%2Fdata&${invalid}`, { headers });
+    assert.equal(response.status, 400);
+    assert.ok((await response.json()).message);
+  }
+});
+
 test('Vercel cookies stay secure even outside the production Node environment', t => {
   const previous = process.env.VERCEL;
   process.env.VERCEL = '1';
