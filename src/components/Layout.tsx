@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layout as AntLayout, Menu, theme, Button, Space, Dropdown } from 'antd';
+import { Layout as AntLayout, Menu, theme, Button, Space, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   DashboardOutlined,
@@ -15,14 +15,16 @@ import {
   MenuUnfoldOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { signOut } from '../lib/auth';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 
 const { Header, Sider, Content } = AntLayout;
 
 const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { role, setRole } = useAuthStore();
+  const { role, signOut: clearAuth } = useAuthStore();
+  const queryClient = useQueryClient();
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -30,9 +32,14 @@ const AppLayout: React.FC = () => {
   const location = useLocation();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setRole(null);
-    navigate('/login');
+    try {
+      await signOut();
+      clearAuth();
+      queryClient.clear();
+      navigate('/login');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Déconnexion impossible');
+    }
   };
 
   const menuItems: MenuProps['items'] = [

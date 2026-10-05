@@ -1,29 +1,23 @@
-import { createClient } from '@supabase/supabase-js';
+import './server/config.mjs';
 
-const supabaseUrl = 'https://smwgufkhqbjtssxwrcwz.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNtd2d1ZmtocWJqdHNzeHdyY3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2Njg3MzEsImV4cCI6MjA5NjI0NDczMX0.nrRDlWmOdfyefR6iQJzWBlZVDFoVOEMHk0NvsrcmGO0';
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function testLogin() {
-  console.log('Attempting to log in as ramijawadi104@gmail.com...');
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: 'ramijawadi104@gmail.com',
-    password: 'adminpassword123',
-  });
-
-  if (error) {
-    console.error('\n❌ LOGIN FAILED!');
-    console.error('Error Status:', error.status);
-    console.error('Error Message:', error.message);
-    
-    if (error.message.includes('Email not confirmed')) {
-      console.log('\n💡 FIX: You have "Confirm email" enabled in Supabase! Go to Supabase Dashboard -> Authentication -> Providers -> Email, and turn OFF "Confirm email", OR check your inbox and click the verification link.');
-    }
-  } else {
-    console.log('\n✅ LOGIN SUCCESSFUL!');
-    console.log('User ID:', data.user.id);
+try {
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    throw new Error('Set ADMIN_EMAIL and ADMIN_PASSWORD locally before running this script.');
   }
+  const base = process.env.API_URL || 'http://localhost:3001';
+  const response = await fetch(`${base}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD }),
+  });
+  if (!response.ok) throw new Error((await response.json()).message);
+  const { user } = await response.json();
+  if (user.role !== 'admin') throw new Error('Login succeeded, but the account is not an admin.');
+  const logout = await fetch(`${base}/api/auth/logout`, {
+    method: 'POST', headers: { Cookie: response.headers.get('set-cookie').split(';')[0] },
+  });
+  if (!logout.ok) throw new Error('Could not revoke the test login session.');
+  console.log('MongoDB admin login and logout succeeded.');
+} catch (error) {
+  console.error(`Login verification failed: ${error.message}`);
+  process.exitCode = 1;
 }
-
-testLogin();

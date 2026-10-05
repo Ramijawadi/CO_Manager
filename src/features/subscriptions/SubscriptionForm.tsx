@@ -1,10 +1,17 @@
 import React, { useEffect } from 'react';
-import { Form, Modal, Select, DatePicker } from 'antd';
+import { Alert, Button, Form, Modal, Select, DatePicker } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getPlans } from '../plans/api';
 import type { SubscriptionInput, Subscription } from './types';
 import type { Customer } from '../customers/types';
 import dayjs from 'dayjs';
+import { isUuid } from '../../utils/uuid';
+
+interface SubscriptionFormValues {
+  customer_id: string;
+  plan_id: string;
+  start_date: dayjs.Dayjs;
+}
 
 interface SubscriptionFormProps {
   open: boolean;
@@ -16,21 +23,23 @@ interface SubscriptionFormProps {
 }
 
 const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onSubmit, customers, initialValues, loading }) => {
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<SubscriptionFormValues>();
   const selectedPlanId = Form.useWatch('plan_id', form);
 
-  const { data: plans = [] } = useQuery({
+  const { data: plans = [], isFetching: plansLoading, error: plansError, refetch } = useQuery({
     queryKey: ['plans'],
     queryFn: getPlans,
   });
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
+  const plansUnavailable = plansLoading || !!plansError || plans.length === 0;
 
   useEffect(() => {
     if (open) {
       if (initialValues) {
         form.setFieldsValue({
-          ...initialValues,
+          customer_id: initialValues.customer_id,
+          plan_id: initialValues.plan_id ?? undefined,
           start_date: dayjs(initialValues.start_date),
         });
       } else {
@@ -44,11 +53,14 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
     form.submit();
   };
 
-  const handleFinish = (values: any) => {
+  const handleFinish = (values: SubscriptionFormValues) => {
     const plan = plans.find(p => p.id === values.plan_id);
-    if (!plan) return;
+    if (plansUnavailable || !plan || !isUuid(plan.id)) {
+      form.setFields([{ name: 'plan_id', errors: ['Veuillez sélectionner un plan enregistré dans la base de données'] }]);
+      return;
+    }
 
-    const startDate = values.start_date as dayjs.Dayjs;
+    const startDate = values.start_date;
     const endDate = startDate.add(plan.duration_days, 'day');
 
     onSubmit({
@@ -67,8 +79,28 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
       onCancel={onCancel}
       onOk={handleOk}
       confirmLoading={loading}
+      okButtonProps={{ disabled: plansUnavailable }}
       destroyOnClose
     >
+      {plansError && (
+        <Alert
+          type="error"
+          showIcon
+          title="Impossible de charger les plans"
+          description={plansError.message}
+          action={<Button onClick={() => void refetch()}>Réessayer</Button>}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {!plansLoading && !plansError && plans.length === 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          title="Aucun plan disponible"
+          description="Créez un plan dans les paramètres avant d'ajouter un abonnement."
+          style={{ marginBottom: 16 }}
+        />
+      )}
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         <Form.Item
           name="customer_id"
@@ -93,6 +125,8 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
         >
           <Select
             placeholder="Sélectionner un plan"
+            loading={plansLoading}
+            disabled={plansUnavailable}
             options={plans.map(p => ({
               value: p.id,
               label: `${p.name} (${p.duration_days} jours - ${Number(p.price || 0).toFixed(3)} DT)`,

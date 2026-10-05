@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Form, InputNumber, Typography, message, Spin, Button, Divider, Modal, Input, Popconfirm } from 'antd';
+import { Alert, Card, Form, InputNumber, Typography, message, Spin, Button, Divider, Modal, Input, Popconfirm } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSettings, updateSettings } from '../features/settings/api';
 import { getPlans, updatePlan, createPlan, deletePlan } from '../features/plans/api';
 import { usePermissions } from '../hooks/usePermissions';
 import { LogoutOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/authStore';
 import { AuthButton } from '../components/AuthButton';
 
@@ -20,14 +20,14 @@ const Settings: React.FC = () => {
   const queryClient = useQueryClient();
   const { requireAdmin } = usePermissions();
   const navigate = useNavigate();
-  const { setRole } = useAuthStore();
+  const { signOut: clearAuth } = useAuthStore();
 
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: getSettings,
   });
 
-  const { data: plans, isLoading: plansLoading } = useQuery({
+  const { data: plans, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useQuery({
     queryKey: ['plans'],
     queryFn: getPlans,
   });
@@ -113,9 +113,14 @@ const Settings: React.FC = () => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setRole(null);
-    navigate('/login');
+    try {
+      await signOut();
+      clearAuth();
+      queryClient.clear();
+      navigate('/login');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Déconnexion impossible');
+    }
   };
 
   if (settingsLoading || plansLoading) {
@@ -129,6 +134,17 @@ const Settings: React.FC = () => {
           Configurez les paramètres de votre espace, y compris la tarification de la base de données.
         </Text>
       </div>
+
+      {plansError && (
+        <Alert
+          type="error"
+          showIcon
+          title="Impossible de charger les plans"
+          description={plansError.message}
+          action={<Button onClick={() => void refetchPlans()}>Réessayer</Button>}
+          style={{ marginBottom: 24 }}
+        />
+      )}
 
       <Card
         bordered={false}
@@ -203,7 +219,7 @@ const Settings: React.FC = () => {
           <Divider />
 
           <Form.Item style={{ marginBottom: 0 }}>
-            <AuthButton type="primary" htmlType="submit" loading={updateMutation.isPending} size="large" style={{ borderRadius: 10 }}>
+            <AuthButton type="primary" htmlType="submit" loading={updateMutation.isPending} disabled={!!plansError} size="large" style={{ borderRadius: 10 }}>
               Enregistrer les modifications
             </AuthButton>
           </Form.Item>

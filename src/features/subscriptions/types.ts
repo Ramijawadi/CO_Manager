@@ -4,14 +4,14 @@ import type { Plan } from '../plans/api';
 export interface Subscription {
   id: string;
   customer_id: string;
-  plan_id: string;
+  plan_id: string | null;
   start_date: string;
   end_date: string;
   status: string;
   created_at?: string;
   updated_at?: string;
-  customers?: Customer;
-  plans?: Plan;
+  customers?: Customer | null;
+  plans?: Plan | null;
 }
 
 export interface SubscriptionInput {

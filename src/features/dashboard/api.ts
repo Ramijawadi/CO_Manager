@@ -1,5 +1,16 @@
-import { supabase } from '../../lib/supabase';
+import { apiRequest } from '../../lib/api';
+import type { Session, SessionProduct } from '../sessions/types';
 import dayjs from 'dayjs';
+
+interface DashboardData {
+  sessions: Session[];
+  session_products: (SessionProduct & { created_at: string })[];
+  activeSubscriptions: number;
+  activeSessions: number;
+}
+
+const getDashboardData = (since: string): Promise<DashboardData> =>
+  apiRequest(`/dashboard/data?${new URLSearchParams({ since, active_on: dayjs().format('YYYY-MM-DD') })}`);
 
 export interface DashboardStats {
   totalVisitorsToday: number;
@@ -10,231 +21,69 @@ export interface DashboardStats {
 }
 
 export const getDashboardStats = async (): Promise<DashboardStats> => {
-  const today = dayjs().startOf('day').toISOString();
-  const todayDate = dayjs().format('YYYY-MM-DD');
-
-  const [
-    visitorsRes,
-    activeSessionsRes,
-    activeSubscriptionsRes,
-    sessionsTodayRes,
-    productsSoldTodayRes,
-  ] = await Promise.all([
-    supabase
-      .from('sessions')
-      .select('id', { count: 'exact', head: true })
-      .gte('entry_time', today),
-    supabase
-      .from('sessions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active'),
-    supabase
-      .from('subscriptions')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'active')
-      .gte('end_date', todayDate),
-    supabase
-      .from('sessions')
-      .select('id, time_cost')
-      .gte('entry_time', today)
-      .eq('status', 'completed'),
-    supabase
-      .from('session_products')
-      .select('total_price, quantity')
-      .gte('created_at', today),
-  ]);
-
-  if (visitorsRes.error) console.error('Error fetching visitors:', visitorsRes.error);
-  if (activeSessionsRes.error) console.error('Error fetching active sessions:', activeSessionsRes.error);
-  if (activeSubscriptionsRes.error) console.error('Error fetching active subscriptions:', activeSubscriptionsRes.error);
-  if (sessionsTodayRes.error) console.error('Error fetching sessions today:', sessionsTodayRes.error);
-  if (productsSoldTodayRes.error) console.error('Error fetching products sold today:', productsSoldTodayRes.error);
-
-  const timeRevenue =
-    sessionsTodayRes.data?.reduce((acc, s) => acc + (typeof s.time_cost === 'number' ? s.time_cost : 0), 0) ?? 0;
-
-  const productRevenue =
-    productsSoldTodayRes.data?.reduce((acc, p) => acc + (typeof p.total_price === 'number' ? p.total_price : 0), 0) ?? 0;
-
-  const productItemsSold =
-    productsSoldTodayRes.data?.reduce((acc, p) => acc + (typeof p.quantity === 'number' ? p.quantity : 0), 0) ?? 0;
-
+  const data = await getDashboardData(dayjs().startOf('day').toISOString());
+  const timeRevenue = data.sessions.filter(session => session.status === 'completed')
+    .reduce((total, session) => total + (session.time_cost ?? 0), 0);
   return {
-    totalVisitorsToday: visitorsRes.count ?? 0,
-    activeSessions: activeSessionsRes.count ?? 0,
-    revenueToday: timeRevenue + productRevenue,
-    activeSubscriptions: activeSubscriptionsRes.count ?? 0,
-    productSalesToday: productItemsSold,
+    totalVisitorsToday: data.sessions.length,
+    activeSessions: data.activeSessions,
+    revenueToday: timeRevenue + data.session_products.reduce((total, product) => total + product.total_price, 0),
+    activeSubscriptions: data.activeSubscriptions,
+    productSalesToday: data.session_products.reduce((total, product) => total + product.quantity, 0),
   };
 };
 
-export interface RevenueChartPoint {
-  name: string;
-  revenue: number;
-}
+export interface RevenueChartPoint { name: string; revenue: number }
+export interface VisitorChartPoint { time: string; visitors: number }
+export interface ChartData { revenueData: RevenueChartPoint[]; visitorData: VisitorChartPoint[] }
 
-export interface VisitorChartPoint {
-  time: string;
-  visitors: number;
-}
-
-export interface ChartData {
-  revenueData: RevenueChartPoint[];
-  visitorData: VisitorChartPoint[];
-}
-
-/**
- * Fetch real aggregated chart data from the database.
- * - Revenue chart: last 7 days grouped by day
- * - Visitor chart: today's sessions grouped by hour
- */
 export const getChartData = async (): Promise<ChartData> => {
   const now = dayjs();
-  const sevenDaysAgo = now.subtract(6, 'day').startOf('day').toISOString();
-  const todayStart = now.startOf('day').toISOString();
-
-  // Fetch completed sessions from last 7 days for revenue chart
-  const { data: recentSessions, error: err1 } = await supabase
-    .from('sessions')
-    .select('entry_time, time_cost')
-    .gte('entry_time', sevenDaysAgo)
-    .eq('status', 'completed');
-
-  // Fetch session products from last 7 days for revenue chart
-  const { data: recentProducts, error: err2 } = await supabase
-    .from('session_products')
-    .select('created_at, total_price')
-    .gte('created_at', sevenDaysAgo);
-
-  // Fetch today's sessions for visitor chart
-  const { data: todaySessions, error: err3 } = await supabase
-    .from('sessions')
-    .select('entry_time')
-    .gte('entry_time', todayStart);
-
-  if (err1) console.error('Error fetching recent sessions:', err1);
-  if (err2) console.error('Error fetching recent products:', err2);
-  if (err3) console.error('Error fetching today sessions:', err3);
-
-  // Build revenue data for last 7 days
+  const data = await getDashboardData(now.subtract(6, 'day').startOf('day').toISOString());
   const revenueMap = new Map<string, number>();
-  for (let i = 6; i >= 0; i--) {
-    const day = now.subtract(i, 'day');
-    revenueMap.set(day.format('ddd'), 0);
-  }
-
-  recentSessions?.forEach((s) => {
-    const dayKey = dayjs(s.entry_time).format('ddd');
-    if (revenueMap.has(dayKey)) {
-      revenueMap.set(dayKey, revenueMap.get(dayKey)! + (typeof s.time_cost === 'number' ? s.time_cost : 0));
-    }
-  });
-
-  recentProducts?.forEach((p) => {
-    const dayKey = dayjs(p.created_at).format('ddd');
-    if (revenueMap.has(dayKey)) {
-      revenueMap.set(dayKey, revenueMap.get(dayKey)! + (p.total_price ?? 0));
-    }
-  });
-
-  const revenueData: RevenueChartPoint[] = Array.from(revenueMap.entries()).map(([name, revenue]) => ({
-    name,
-    revenue,
-  }));
-
-  // Build visitor data for today by hour (8am - 10pm)
+  for (let i = 6; i >= 0; i--) revenueMap.set(now.subtract(i, 'day').format('YYYY-MM-DD'), 0);
+  const addRevenue = (timestamp: string, amount: number) => {
+    const key = dayjs(timestamp).format('YYYY-MM-DD');
+    if (revenueMap.has(key)) revenueMap.set(key, revenueMap.get(key)! + amount);
+  };
+  data.sessions.filter(session => session.status === 'completed')
+    .forEach(session => addRevenue(session.entry_time, session.time_cost ?? 0));
+  data.session_products.forEach(product => addRevenue(product.created_at, product.total_price));
   const visitorMap = new Map<string, number>();
-  for (let h = 8; h <= 22; h += 2) {
-    visitorMap.set(`${String(h).padStart(2, '0')}:00`, 0);
-  }
-
-  todaySessions?.forEach((s) => {
-    const roundedHour = `${String(Math.floor(dayjs(s.entry_time).hour() / 2) * 2).padStart(2, '0')}:00`;
-    if (visitorMap.has(roundedHour)) {
-      visitorMap.set(roundedHour, visitorMap.get(roundedHour)! + 1);
-    }
+  for (let hour = 8; hour <= 22; hour += 2) visitorMap.set(`${String(hour).padStart(2, '0')}:00`, 0);
+  data.sessions.filter(session => dayjs(session.entry_time).isSame(now, 'day')).forEach(session => {
+    const key = `${String(Math.floor(dayjs(session.entry_time).hour() / 2) * 2).padStart(2, '0')}:00`;
+    if (visitorMap.has(key)) visitorMap.set(key, visitorMap.get(key)! + 1);
   });
-
-  const visitorData: VisitorChartPoint[] = Array.from(visitorMap.entries()).map(([time, visitors]) => ({
-    time,
-    visitors,
-  }));
-
-  return { revenueData, visitorData };
+  return {
+    revenueData: [...revenueMap].map(([date, revenue]) => ({ name: dayjs(date).format('ddd'), revenue })),
+    visitorData: [...visitorMap].map(([time, visitors]) => ({ time, visitors })),
+  };
 };
 
-export interface TopProduct {
-  product_id: string;
-  name: string;
-  quantity_sold: number;
-  revenue: number;
-}
+export interface TopProduct { product_id: string; name: string; quantity_sold: number; revenue: number }
 
-/**
- * Fetch top selling products today.
- */
 export const getTopProducts = async (): Promise<TopProduct[]> => {
-  const today = dayjs().startOf('day').toISOString();
-
-  const { data, error } = await supabase
-    .from('session_products')
-    .select('product_id, quantity, total_price, products!product_id(name)')
-    .gte('created_at', today);
-
-  if (error || !data) return [];
-
-  // Aggregate by product
+  const query = new URLSearchParams({ since: dayjs().startOf('day').toISOString() });
+  const rows = await apiRequest<SessionProduct[]>(`/session_products?${query}`);
   const productMap = new Map<string, TopProduct>();
-
-  data.forEach((row: any) => {
-    const id = row.product_id;
-    const existing = productMap.get(id);
-    const productName = row.products?.name ?? 'Inconnu';
-
-    if (existing) {
-      existing.quantity_sold += row.quantity ?? 0;
-      existing.revenue += row.total_price ?? 0;
-    } else {
-      productMap.set(id, {
-        product_id: id,
-        name: productName,
-        quantity_sold: row.quantity ?? 0,
-        revenue: row.total_price ?? 0,
-      });
-    }
-  });
-
-  return Array.from(productMap.values())
-    .sort((a, b) => b.quantity_sold - a.quantity_sold)
-    .slice(0, 5);
+  for (const row of rows) {
+    const item = productMap.get(row.product_id) ?? {
+      product_id: row.product_id, name: row.products?.name ?? 'Inconnu', quantity_sold: 0, revenue: 0,
+    };
+    item.quantity_sold += row.quantity;
+    item.revenue += row.total_price;
+    productMap.set(row.product_id, item);
+  }
+  return [...productMap.values()].sort((a, b) => b.quantity_sold - a.quantity_sold).slice(0, 5);
 };
 
-export interface ActiveSessionRow {
-  id: string;
-  customer_name: string;
-  entry_time: string;
-  duration_minutes: number;
-}
+export interface ActiveSessionRow { id: string; customer_name: string; entry_time: string; duration_minutes: number }
 
-/**
- * Fetch active sessions for the dashboard mini-table.
- */
 export const getActiveSessionsList = async (): Promise<ActiveSessionRow[]> => {
-  const { data, error } = await supabase
-    .from('sessions')
-    .select('id, entry_time, customers!customer_id(full_name)')
-    .eq('status', 'active')
-    .order('entry_time', { ascending: false })
-    .limit(10);
-
-  if (error || !data) return [];
-
-  const now = dayjs();
-
-  return data.map((s: any) => ({
-    id: s.id,
-    customer_name: s.customers?.full_name ?? 'Inconnu',
-    entry_time: s.entry_time,
-    duration_minutes: now.diff(dayjs(s.entry_time), 'minute'),
+  const sessions = await apiRequest<Session[]>('/sessions?status=active&limit=10');
+  return sessions.map(session => ({
+    id: session.id, customer_name: session.customers?.full_name ?? 'Inconnu',
+    entry_time: session.entry_time, duration_minutes: dayjs().diff(dayjs(session.entry_time), 'minute'),
   }));
 };

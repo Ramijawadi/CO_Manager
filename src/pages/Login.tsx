@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input, Button, Typography, message, Alert } from 'antd';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { Input, Button, Typography, message } from 'antd';
+import { signIn } from '../lib/auth';
+import { useAuthStore } from '../store/authStore';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import lottie from 'lottie-web';
@@ -28,26 +30,30 @@ const LottieLoader: React.FC = () => {
 };
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('comanager@gmail.com');
-  const [password, setPassword] = useState('manager2026');
+  const [email, setEmail] = useState(import.meta.env.VITE_BETA_LOGIN_EMAIL ?? '');
+  const [password, setPassword] = useState(import.meta.env.VITE_BETA_LOGIN_PASSWORD ?? '');
   const [loading, setLoading] = useState(false);
   const [showSuccessLoader, setShowSuccessLoader] = useState(false);
   const navigate = useNavigate();
+  const setSession = useAuthStore(state => state.setSession);
+  const queryClient = useQueryClient();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      message.error(error.message);
-      setLoading(false);
-    } else {
+    try {
+      const session = await signIn(email, password);
+      queryClient.clear();
+      setSession(session);
       message.success('Connexion réussie');
       setShowSuccessLoader(true);
       setTimeout(() => {
         navigate('/');
       }, 2000);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Connexion impossible');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -152,21 +158,6 @@ const Login: React.FC = () => {
           </div>
 
           <form onSubmit={handleLogin}>
-            {!isSupabaseConfigured() && (
-              <Alert
-                type="error"
-                showIcon
-                style={{ marginBottom: 18, borderRadius: 10 }}
-                message="Configuration manquante"
-                description={
-                  <>
-                    Les variables <strong>VITE_SUPABASE_URL</strong> et <strong>VITE_SUPABASE_ANON_KEY</strong> ne sont pas définies.
-                    <br />
-                    Ajoutez-les dans votre fichier <code>.env</code> ou dans les <strong>Environment Variables</strong> de votre projet Vercel.
-                  </>
-                }
-              />
-            )}
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
                 Email

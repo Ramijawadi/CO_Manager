@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { supabase } from '../lib/supabase';
+import { getSession } from '../lib/auth';
+import { Alert, Button } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import lottie from 'lottie-web';
 import animationData from '../assets/loading-circles.json';
 
@@ -25,51 +27,35 @@ const LottieLoader: React.FC = () => {
 };
 
 const ProtectedRoute: React.FC = () => {
-  const { session, setSession, setRole } = useAuthStore();
+  const { session, setSession, signOut } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
+    let mounted = true;
     const initializeAuth = async () => {
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-
-      if (currentSession?.user) {
-        const { data, error } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', currentSession.user.id)
-          .single();
-
-        if (error || !data) {
-          setRole('staff');
-        } else {
-          setRole(data.role as 'admin' | 'staff' | 'demo');
-        }
+      try {
+        const currentSession = await getSession();
+        if (mounted) setSession(currentSession);
+      } catch (cause) {
+        if (mounted) setError(cause instanceof Error ? cause.message : 'Unable to verify your session.');
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      setLoading(false);
     };
-
-    initializeAuth();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      setSession(newSession);
-      if (newSession?.user) {
-        const { data } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', newSession.user.id)
-          .single();
-        setRole((data?.role as 'admin' | 'staff' | 'demo') || 'staff');
-      } else {
-        setRole(null);
-      }
-    });
-
+    void initializeAuth();
+    const expireSession = () => {
+      signOut();
+      queryClient.clear();
+    };
+    window.addEventListener('auth-expired', expireSession);
     return () => {
-      authListener.subscription.unsubscribe();
+      mounted = false;
+      window.removeEventListener('auth-expired', expireSession);
     };
-  }, [setSession, setRole]);
+  }, [setSession, signOut, queryClient, attempt]);
 
   if (loading) {
     return (
@@ -77,6 +63,15 @@ const ProtectedRoute: React.FC = () => {
         <LottieLoader />
       </div>
     );
+  }
+
+  if (error) {
+    return <Alert type="error" showIcon title="Connexion indisponible" description={error}
+      action={<Button onClick={() => {
+        setLoading(true);
+        setError(null);
+        setAttempt(value => value + 1);
+      }}>Réessayer</Button>} />;
   }
 
   if (!session) {

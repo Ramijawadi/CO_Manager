@@ -1,231 +1,161 @@
 # Co-Management System
 
-A comprehensive management system built with React, TypeScript, Vite, and Supabase for managing customer sessions, subscriptions, products, and reports.
+Management of customers, sessions, subscriptions, products, daily closures and
+reports using React, TypeScript, Vite and MongoDB.
 
-## Features
+## Architecture
 
-- 👥 **Customer Management**: Track visitors and their information
-- 🎮 **Session Management**: Monitor active gaming/service sessions with time tracking
-- 💳 **Subscription System**: Manage weekly and monthly plans
-- 📦 **Product Sales**: Track product inventory and sales within sessions
-- 📊 **Dashboard & Reports**: View analytics and generate detailed reports
-- ⚙️ **Settings**: Configure hourly rates and other system parameters
+- Frontend: React 19, Ant Design, TanStack Query, Zustand, Recharts.
+- Backend: a long-running Node.js/Express API with the official MongoDB driver.
+- Authentication: MongoDB users with salted scrypt password hashes and opaque
+  server-side sessions in HttpOnly, SameSite cookies. Session tokens are hashed
+  in the database and expire after seven days.
+- Live updates: MongoDB change streams delivered through authenticated
+  server-sent events. The frontend refreshes query caches on changes and
+  reconnection; it reports a live-update error instead of pretending to connect.
+- Exports: PDF through jsPDF and Excel through XLSX.
 
-## Tech Stack
+MongoDB credentials are used **only by the backend**, never by the browser.
+Supabase is no longer required for data, login, roles or live updates.
 
-- **Frontend**: React 19, TypeScript, Ant Design, TanStack Query
-- **Backend**: Supabase (PostgreSQL, Auth, RLS)
-- **Build Tool**: Vite
-- **Charts**: Recharts
-- **PDF Generation**: jsPDF
-- **Excel Export**: XLSX
+## Getting started
 
-## Getting Started
+Requires Node.js **22.12+** (or a newer supported version) and a MongoDB Atlas
+cluster or replica set supporting transactions and change streams.
+Allow the API server's IP in Atlas Network Access and give the database user
+read/write and collection/index management permissions on the application database.
 
-### Prerequisites
-
-- Node.js 18+ installed
-- Supabase account and project
-
-### Installation
-
-1. Clone the repository
-2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Set up environment variables:
-Create a `.env` file in the root directory:
+Create a local `.env` using `.env.example`:
+
 ```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+MONGODB_URI=mongodb+srv://username:password@cluster.example.mongodb.net/
+MONGODB_DB_NAME=co_management
+PORT=3001
 ```
 
-4. Apply the database schema:
-   - Go to your Supabase Dashboard → SQL Editor
-   - Run the contents of `supabase_schema.sql`
-   - Or run the migration: `migrations/add_time_cost_column.sql`
+URL-encode reserved characters in the connection-string username/password.
+Never use `VITE_MONGODB_URI` or commit `.env`.
 
-5. Verify your database schema:
+For the previous local environment file that contains a **commented MongoDB
+connection string**, `npm run configure-mongodb` activates it under
+`MONGODB_URI`, sets the database name, and removes obsolete Supabase variables
+and duplicate credential comments. It does not print credentials.
+
+Initialize the database and provision an admin:
+
 ```bash
+npm run setup-db
+npm run create-admin
 npm run verify-schema
-```
-
-6. Start the development server:
-```bash
 npm run dev
 ```
 
-## Database Migration
+The admin command prompts for an email and a password of at least ten characters.
+Alternatively, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` privately in your local
+process environment. The command refuses to overwrite existing accounts.
+For shared beta testing, the login screen can prefill `VITE_BETA_LOGIN_EMAIL`
+and `VITE_BETA_LOGIN_PASSWORD` from local `.env`. These values are public in the
+browser build: anyone can use the account and its permissions. Remove both
+variables and rebuild before a private or production deployment. Database
+credentials must still remain server-only.
 
-If you encounter the error: **"Could not find the 'time_cost' column"**, follow these steps:
+Development starts the API on port 3001 and Vite together. Vite proxies `/api`
+to the backend, including cookies and live events. If changing the API port,
+also change the development proxy target in `vite.config.ts`.
 
-1. Read the detailed guide: [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
-2. Run the migration script in Supabase SQL Editor:
-   - File: `migrations/add_time_cost_column.sql`
-3. Verify the migration:
-```bash
-npm run verify-schema
-```
+## Data model and behavior
 
-## Scripts
+Setup creates validated collections, unique UUID indexes, query indexes, a
+singleton hourly-rate setting (1 DT), and default plans:
+Hebdomadaire (7 days, 25 DT), Mensuel (30 days, 80 DT).
+Setup is repeatable and does not replace existing passwords or business records.
+It reapplies missing default plans; do not use it as a routine server startup task.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run ESLint
-- `npm run verify-schema` - Verify database schema integrity
+Public document IDs remain UUID strings so subscription forms and existing
+frontend contracts continue to work. Referenced customers, catalog products,
+plans and subscriptions can be queried independently. Session product records
+remain separate because consumption has no fixed bound and is also queried
+independently for sales analytics; joined API responses retain `customers`,
+`plans`, `session_products` and `products` fields expected by the UI.
 
-## Project Structure
+API writes enforce strict input schemas, finite nonnegative money values,
+integer quantities, existing referenced records and date ranges. Multi-document
+writes use transactions. Customer/session/product deletion preserves the former
+cascade behavior; deleting a plan sets affected subscriptions' `plan_id` to null.
+Daily closures are upserted by date. Demo accounts are read-only on the server;
+admin and staff retain the existing business write permissions.
 
-```
-src/
-├── components/       # Shared components (Layout, ProtectedRoute)
-├── features/         # Feature-based modules
-│   ├── customers/    # Customer management
-│   ├── dashboard/    # Dashboard & analytics
-│   ├── products/     # Product management
-│   ├── reports/      # Report generation
-│   ├── sessions/     # Session management
-│   ├── settings/     # System settings
-│   └── subscriptions/# Subscription management
-├── hooks/            # Custom React hooks
-├── lib/              # Core libraries (Supabase client, types)
-├── pages/            # Page components
-├── store/            # State management (Zustand)
-├── types/            # TypeScript type definitions
-└── utils/            # Utility functions
-```
+**This migration starts fresh.** It does not copy Supabase records or passwords,
+and it does not delete or alter the old Supabase project. Legacy SQL files are
+historical references, not MongoDB setup instructions.
 
-## Key Features
+## Scripts and validation
 
-### Session Management
-- Check-in customers for sessions
-- Track active sessions in real-time
-- Calculate time costs based on duration
-- Automatic subscription detection (free time for subscribers)
-- Add products to sessions during active use
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start backend and frontend together |
+| `npm run dev:api` | Watch the API server |
+| `npm run dev:web` | Start Vite only |
+| `npm run setup-db` | Initialize collections, validators, indexes and defaults |
+| `npm run create-admin` | Create an admin with a hashed password |
+| `npm run verify-schema` | Read-only collection, index and admin verification |
+| `npm test` | Offline backend and subscription regression tests |
+| `npm run build` | Type-check and build the frontend |
+| `npm start` | Run the API and serve the existing production build |
+| `npm run lint` | Run repository ESLint checks |
 
-### Revenue Tracking
-- Time-based revenue calculation
-- Product sales tracking
-- Daily revenue reports
-- Export data to PDF or Excel
+With a running API and private `ADMIN_EMAIL` / `ADMIN_PASSWORD` variables,
+`node test_login.js` verifies admin login and revokes the test session.
+An optional end-to-end test, `tests/mongodb-live.test.mjs`, runs only with
+`RUN_MONGODB_LIVE_TESTS=1`; it creates uniquely named temporary records and
+removes only those records in cleanup.
 
-### Subscription System
-- Weekly and monthly plans
-- Automatic status tracking
-- Subscription expiry monitoring
+## Deployment
 
-## Best Practices Implemented
+Build with `npm run build`, then run `npm start` on a Node-capable host.
+Set the server-only MongoDB variables, the host's `PORT`,
+`NODE_ENV=production`, and `APP_ORIGIN=https://your-public-host`.
+Production requires HTTPS because authentication cookies are Secure.
+Keep the frontend and API on the same public origin. A static-only frontend
+deployment is no longer sufficient; the host/proxy must support long-lived SSE
+connections without buffering. Atlas change streams propagate updates across
+multiple API instances.
 
-- ✅ Explicit field selection in database queries
-- ✅ Proper error handling and logging
-- ✅ Type-safe database operations
-- ✅ Idempotent database migrations
-- ✅ Data validation at both DB and application level
-- ✅ Performance-optimized indexes
-- ✅ Row Level Security (RLS) policies
+The backend reuses one MongoClient and the driver's default pool settings.
+No custom pool sizes or timeouts are assumed without workload measurements.
+Monitor Atlas Connections, connection churn, API latency, and driver
+`connectionCheckOutFailed` / `connectionCreated` events before tuning pool
+settings; account for each API instance's pools and replica-set monitoring
+connections. Restart the API if its change stream reports a terminal error.
 
 ## Troubleshooting
 
-### Schema Cache Issues
-If you see errors about missing columns:
-1. Run `npm run verify-schema` to diagnose
-2. Check [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) for solutions
-3. Ensure database migrations are applied
-4. Regenerate TypeScript types if needed
+- **Login or database unavailable:** ensure the API is running, `.env` has the
+  server-only MongoDB variables, Atlas permits the server IP, and the database
+  user has the required permissions.
+- **No admin / missing settings:** run setup and admin provisioning, then verify
+  the schema. A database name typo points to a different, empty database.
+- **Invalid subscription plan:** reload plans and select a saved UUID-backed
+  plan. Failed reads/writes are surfaced; local placeholder plans are not used.
+- **Live updates unavailable:** check replica-set/change-stream support and the
+  API logs, then restart the API. A reconnect refreshes cached dashboard data.
+- **Session checkout:** `time_cost` starts as null and is stored as a finite,
+  nonnegative number when a session completes. No SQL column migration is needed.
 
-### Common Issues
-- **Authentication errors**: Verify your Supabase credentials in `.env`
-- **Build errors**: Clear `node_modules` and reinstall
-- **Type errors**: Regenerate types with Supabase CLI
+See [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md) and [QUICK_FIX.md](./QUICK_FIX.md)
+for the new setup and troubleshooting workflow.
 
-## Contributing
+## Project structure
 
-1. Follow the existing code structure
-2. Add proper TypeScript types
-3. Include error handling
-4. Test database changes with `verify-schema` script
-5. Update documentation as needed
-
-## License
+- `server/`: connection reuse, schema setup, API validation, auth and live updates.
+- `src/lib/`: HTTP and authentication clients.
+- `src/features/`: customers, sessions, plans, subscriptions, products, analytics.
+- `src/pages/`, `src/components/`, `src/hooks/`, `src/store/`: frontend UI/state.
+- `tests/`: offline regression coverage and opt-in live workflow coverage.
+- `migrations/` and SQL files: archived Supabase schema/migrations.
 
 This project is private and proprietary.
-
----
-
-## React + TypeScript + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
