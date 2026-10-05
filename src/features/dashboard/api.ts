@@ -1,6 +1,7 @@
 import { apiRequest } from '../../lib/api';
 import type { Session, SessionProduct } from '../sessions/types';
 import dayjs from 'dayjs';
+import { sessionInDinars, sessionProductInDinars } from '../../lib/productMoney';
 
 interface DashboardData {
   sessions: Session[];
@@ -9,8 +10,14 @@ interface DashboardData {
   activeSessions: number;
 }
 
-const getDashboardData = (since: string): Promise<DashboardData> =>
-  apiRequest(`/dashboard/data?${new URLSearchParams({ since, active_on: dayjs().format('YYYY-MM-DD') })}`);
+const getDashboardData = async (since: string): Promise<DashboardData> => {
+  const data = await apiRequest<DashboardData>(`/dashboard/data?${new URLSearchParams({ since, active_on: dayjs().format('YYYY-MM-DD') })}`);
+  return {
+    ...data,
+    sessions: data.sessions.map(sessionInDinars),
+    session_products: data.session_products.map(sessionProductInDinars),
+  };
+};
 
 export interface DashboardStats {
   totalVisitorsToday: number;
@@ -65,7 +72,7 @@ export interface TopProduct { product_id: string; name: string; quantity_sold: n
 
 export const getTopProducts = async (): Promise<TopProduct[]> => {
   const query = new URLSearchParams({ since: dayjs().startOf('day').toISOString() });
-  const rows = await apiRequest<SessionProduct[]>(`/session_products?${query}`);
+  const rows = (await apiRequest<SessionProduct[]>(`/session_products?${query}`)).map(sessionProductInDinars);
   const productMap = new Map<string, TopProduct>();
   for (const row of rows) {
     const item = productMap.get(row.product_id) ?? {

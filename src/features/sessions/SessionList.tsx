@@ -9,6 +9,7 @@ import { calculateDuration, calculateTimeCost } from '../../utils/time';
 import SessionConsumptionPanel from './SessionConsumptionPanel';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
+import { formatProductPrice } from '../../lib/productMoney';
 
 const SessionList: React.FC = () => {
   const queryClient = useQueryClient();
@@ -305,7 +306,7 @@ const SessionList: React.FC = () => {
             ) : (
               <p><strong>Coût de temps :</strong> {checkoutDetails.timeCost.toFixed(3)} DT</p>
             )}
-            <p><strong>Coût des produits :</strong> {checkoutDetails.productCost.toFixed(3)} DT</p>
+            <p><strong>Coût des produits :</strong> {formatProductPrice(checkoutDetails.productCost)}</p>
             <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
               <h3><strong>Total à payer :</strong> {(checkoutDetails.timeCost + checkoutDetails.productCost).toFixed(3)} DT</h3>
             </div>

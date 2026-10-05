@@ -7,6 +7,7 @@ import ProductForm from './ProductForm';
 import type { Product, ProductInput } from './types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
+import { formatProductPrice } from '../../lib/productMoney';
 
 const ProductList: React.FC = () => {
   const queryClient = useQueryClient();
@@ -78,7 +79,7 @@ const ProductList: React.FC = () => {
   const columns = [
     { title: 'Nom', dataIndex: 'name', key: 'name' },
     { title: 'Description', dataIndex: 'description', key: 'description' },
-    { title: 'Prix', dataIndex: 'price', key: 'price', render: (val: number) => val % 1 === 0 ? `${val}dt` : `${Math.floor(val)}dt.${String(Math.round((val % 1) * 1000)).padStart(3, '0')}` },
+    { title: 'Prix', dataIndex: 'price', key: 'price', render: formatProductPrice },
     { title: 'Stock', dataIndex: 'stock', key: 'stock' },
     {
       title: 'Actions',

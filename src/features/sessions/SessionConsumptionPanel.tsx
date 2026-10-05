@@ -8,6 +8,7 @@ import type { Session, SessionProduct } from './types';
 import type { Product } from '../products/types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
+import { formatProductPrice } from '../../lib/productMoney';
 
 const { Text } = Typography;
 
@@ -24,6 +25,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
   
   // Watch product_id to get price dynamically
   const selectedProductId = Form.useWatch('product_id', form);
+  const quantity = Form.useWatch('quantity', form) ?? 1;
 
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -86,7 +88,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
       align: 'right' as const,
       render: (val: number) => (
         <Text strong style={{ color: '#059669' }}>
-          {val.toFixed(3)} DT
+          {formatProductPrice(val)}
         </Text>
       ),
     },
@@ -132,7 +134,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         borderBottom: '1px solid #f0f0f0'
       }}>
         <Text strong style={{ fontSize: '15px', color: '#0f172a' }}>
-          Produits Consommés (Total : {totalConsumption.toFixed(3)} DT)
+          Produits Consommés (Total : {formatProductPrice(totalConsumption)})
         </Text>
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
           if (!requireAdmin()) return;
@@ -188,7 +190,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
               }
               options={products.map((p: Product) => ({ 
                 value: p.id, 
-                label: `${p.name} - ${p.price.toFixed(3)} DT` 
+                label: `${p.name} - ${formatProductPrice(p.price)}`
               }))}
             />
           </Form.Item>
@@ -198,7 +200,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
             label="Quantité"
             rules={[{ required: true, message: 'Veuillez spécifier la quantité' }]}
           >
-            <InputNumber min={1} style={{ width: '100%' }} size="large" />
+            <InputNumber min={1} precision={0} style={{ width: '100%' }} size="large" />
           </Form.Item>
 
           {selectedProduct && (
@@ -210,7 +212,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
               textAlign: 'right'
             }}>
               <Text strong style={{ fontSize: '16px', color: '#0f172a' }}>
-                Total: {(selectedProduct.price * (form.getFieldValue('quantity') || 1)).toFixed(3)} DT
+                Total: {formatProductPrice(selectedProduct.price * quantity)}
               </Text>
             </div>
           )}

@@ -59,7 +59,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ open, onCancel, onSubmit, ini
           label="Prix (DT)"
           rules={[{ required: true, message: 'Veuillez entrer le prix' }]}
         >
-          <InputNumber min={0} step={0.1} style={{ width: '100%' }} />
+          <InputNumber min={0} step={0.001} precision={3} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item
           name="stock"

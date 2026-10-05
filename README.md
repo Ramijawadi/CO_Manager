@@ -86,6 +86,14 @@ remain separate because consumption has no fixed bound and is also queried
 independently for sales analytics; joined API responses retain `customers`,
 `plans`, `session_products` and `products` fields expected by the UI.
 
+Product `price` and session-product `total_price` are stored and exchanged by
+the API in millimes (1500 = 1.500 DT). Frontend feature APIs convert them to
+dinars for forms, checkout, dashboard calculations and report exports, and
+convert product writes back to integer millimes. Product displays use
+`1dt.500`; enter `1.500` in the product form's DT field. Time charges, subscription
+prices and daily-closure totals remain in dinars. Existing archived daily
+closures are not automatically recalculated.
+
 API writes enforce strict input schemas, finite nonnegative money values,
 integer quantities, existing referenced records and date ranges. Multi-document
 writes use transactions. Customer/session/product deletion preserves the former
