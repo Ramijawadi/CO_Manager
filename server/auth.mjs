@@ -32,7 +32,7 @@ export function readToken(req) {
 
 export function cookieOptions() {
   return {
-    httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production',
+    httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1',
     path: '/', maxAge: SESSION_DURATION,
   };
 }

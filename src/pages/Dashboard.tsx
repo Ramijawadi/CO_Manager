@@ -84,9 +84,10 @@ const metricCards = [
   },
 ];
 
-const LiveIndicator: React.FC<{ status: 'connected' | 'disconnected' | 'error' }> = ({ status }) => {
-  const color = status === 'connected' ? '#10b981' : status === 'error' ? '#ef4444' : '#94a3b8';
-  const label = status === 'connected' ? 'En direct' : status === 'error' ? 'Erreur' : 'Hors ligne';
+const LiveIndicator: React.FC<{ status: 'connected' | 'polling' | 'disconnected' | 'error' }> = ({ status }) => {
+  const color = status === 'connected' || status === 'polling' ? '#10b981' : status === 'error' ? '#ef4444' : '#94a3b8';
+  const label = status === 'polling' ? 'Actualisation toutes les 15 s'
+    : status === 'connected' ? 'En direct' : status === 'error' ? 'Erreur' : 'Hors ligne';
 
   return (
     <Tooltip title={label}>

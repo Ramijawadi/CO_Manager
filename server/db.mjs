@@ -8,8 +8,13 @@ export async function connectDatabase() {
   if (!connection) {
     const { uri, name } = databaseConfig();
     client = new MongoClient(uri);
-    connection = client.connect().then(() => ({ client, db: client.db(name) }));
-    connection.catch(() => { connection = undefined; });
+    const pendingClient = client;
+    connection = pendingClient.connect().then(() => ({ client: pendingClient, db: pendingClient.db(name) }))
+      .catch(async error => {
+        connection = undefined;
+        await pendingClient.close();
+        throw error;
+      });
   }
   return connection;
 }

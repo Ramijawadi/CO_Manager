@@ -33,9 +33,17 @@ closure upserts and deletion cascades are preserved. Plan deletion leaves
 subscriptions with a null plan reference; editing requires selecting a saved
 plan again.
 
-For production, deploy the Node API and built frontend together, set
-`NODE_ENV=production` and the HTTPS `APP_ORIGIN`, and keep `/api` on the same
-public origin. A static-only deployment will not run MongoDB access or login.
+For Vercel, deploy the frontend with the included `api/index.mjs` function and
+`vercel.json` routing. Add `MONGODB_URI` and `MONGODB_DB_NAME` in the Vercel
+project's environment settings and redeploy; the ignored local `.env` is not
+uploaded. Vercel uses 15-second dashboard polling rather than a permanent change
+stream. `APP_ORIGIN` is optional; if set, it must match the exact public HTTPS
+origin, including the correct Preview domain. Keep the frontend and API on the
+same origin. See the Vercel checklist in [README.md](./README.md).
+
+For traditional Node hosting, deploy the Node API and built frontend together,
+set `NODE_ENV=production` and the HTTPS `APP_ORIGIN`, and run `npm start`.
+A static-only deployment without an API function cannot run database login.
 
 SQL files and the old `time_cost` migrations are archived historical references.
 Do not run them for the MongoDB application. Checkout now validates and stores

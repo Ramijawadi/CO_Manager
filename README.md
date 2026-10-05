@@ -6,13 +6,16 @@ reports using React, TypeScript, Vite and MongoDB.
 ## Architecture
 
 - Frontend: React 19, Ant Design, TanStack Query, Zustand, Recharts.
-- Backend: a long-running Node.js/Express API with the official MongoDB driver.
+- Backend: a Node.js/Express API with the official MongoDB driver, running
+  locally as a server or on Vercel as a cached Node.js Function.
 - Authentication: MongoDB users with salted scrypt password hashes and opaque
   server-side sessions in HttpOnly, SameSite cookies. Session tokens are hashed
   in the database and expire after seven days.
 - Live updates: MongoDB change streams delivered through authenticated
   server-sent events. The frontend refreshes query caches on changes and
   reconnection; it reports a live-update error instead of pretending to connect.
+  On Vercel, dashboard updates use authenticated polling every 15 seconds
+  instead of permanent connections, with a distinct polling indicator.
 - Exports: PDF through jsPDF and Excel through XLSX.
 
 MongoDB credentials are used **only by the backend**, never by the browser.
@@ -116,6 +119,51 @@ removes only those records in cleanup.
 
 ## Deployment
 
+### Vercel (frontend and API together)
+
+`vercel.json` builds the Vite frontend into `dist` and routes all `/api/*`
+requests to `api/index.mjs` **before** the SPA fallback. The function restores
+the API route and query string, reuses a cached Express app and MongoClient
+across warm invocations, and never starts a listener or background change stream.
+Static assets are served by Vercel; frontend routes fall back to `index.html`.
+
+1. Import the repository with the project root set to this directory. Use the
+   Vite preset, `npm run build`, and output directory `dist` (configured in
+   `vercel.json`). Select Node.js 22.x or a newer supported Node.js version.
+2. In **Project Settings > Environment Variables**, add `MONGODB_URI` and
+   `MONGODB_DB_NAME=co_management` for Production and any Preview environments
+   you use. Local `.env` is ignored by Git and is **not deployed**. Paste the URI
+   as its actual value, without surrounding quotes or a `MONGODB_URI=` prefix.
+3. Ensure Atlas permits network connections from your Vercel deployment.
+   Prefer static egress/secure networking and a restricted Atlas access list.
+   Use a least-privilege database user; never expose its credentials via `VITE_`.
+4. The database must already be initialized and contain the admin. The existing
+   local setup is sufficient if Vercel points to the same cluster/database.
+   For a different database, run setup and admin provisioning locally against
+   that database first. Do not run setup or create accounts on each invocation.
+5. `APP_ORIGIN` is optional: by default the function uses the request's public
+   host and trusted proxy protocol, so custom domains and Preview URLs work.
+   If set, it must exactly match the HTTPS origin used by testers, with no
+   trailing slash. A production-only origin on Preview will block its login.
+   Secure, HttpOnly cookies are enabled for Vercel.
+6. For beta prefilled login only, set `VITE_BETA_LOGIN_EMAIL` and
+   `VITE_BETA_LOGIN_PASSWORD` in Vercel as well. These are public build values,
+   **not database credentials**. Every tester shares that account's permissions.
+7. Redeploy after saving environment variables or deployment configuration.
+   Open `https://your-deployment/api/health`; expect JSON `{"status":"ok"}`.
+   `/api/auth/session` should return JSON 401 before login, not frontend HTML.
+   Then test login and a direct frontend route such as `/settings`.
+
+Dashboard polling does not require MongoDB change streams on Vercel; writes
+still require transaction/replica-set support. Polling failures are indicated
+as errors rather than a successful live connection. Login attempt counters
+are per warm function instance; use Vercel Firewall rate limits for
+deployment-wide login protection. Monitor Atlas Connections, connection
+checkout failures and cold-start latency before adjusting the default pool:
+each warm function instance owns its own MongoClient/pools.
+
+### Traditional Node hosting
+
 Build with `npm run build`, then run `npm start` on a Node-capable host.
 Set the server-only MongoDB variables, the host's `PORT`,
 `NODE_ENV=production`, and `APP_ORIGIN=https://your-public-host`.
@@ -152,6 +200,8 @@ for the new setup and troubleshooting workflow.
 ## Project structure
 
 - `server/`: connection reuse, schema setup, API validation, auth and live updates.
+- `api/`: Vercel Function entrypoint (the shared Express API).
+- `vercel.json`: API routing, static assets and SPA fallback for Vercel.
 - `src/lib/`: HTTP and authentication clients.
 - `src/features/`: customers, sessions, plans, subscriptions, products, analytics.
 - `src/pages/`, `src/components/`, `src/hooks/`, `src/store/`: frontend UI/state.

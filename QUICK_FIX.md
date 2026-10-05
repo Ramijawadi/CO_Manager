@@ -23,6 +23,11 @@ intended application database. The admin command refuses to overwrite an
 existing account.
 
 If login fails, use the account provisioned in MongoDB, not a Supabase session.
+On Vercel, deploy the included `api/index.mjs` and `vercel.json` with the
+frontend, set `MONGODB_URI` and `MONGODB_DB_NAME` in the project's environment
+settings, and redeploy. Check `/api/health` returns JSON, not the frontend page.
+The local ignored `.env` is not deployed. Dashboard updates use 15-second
+polling on Vercel; local Node hosting keeps streaming updates.
 If live updates fail, verify replica-set/change-stream support and check API
 logs; restart the API after resolving the cause.
 

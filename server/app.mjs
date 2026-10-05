@@ -92,15 +92,18 @@ async function deleteRecord(db, table, id, session) {
   await db.collection(table).deleteOne({ id }, { session });
 }
 
-export async function createApp({ db, client, events, realtimeReady = () => true }) {
+export async function createApp({
+  db, client, events, realtimeReady = () => true, serverless = false, serveFrontend = true,
+}) {
   const app = express();
   app.disable('x-powered-by');
+  if (serverless) app.set('trust proxy', 1);
   app.use(express.json({ limit: '100kb' }));
   app.use('/api', (_req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
   app.use('/api', (req, res, next) => {
     if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
       const origin = req.headers.origin;
-      const expected = process.env.APP_ORIGIN || `${req.protocol}://${req.get('host')}`;
+      const expected = process.env.APP_ORIGIN || `${req.protocol}://${serverless ? req.host : req.get('host')}`;
       if (origin && origin !== expected) return res.status(403).json({ message: 'Cross-origin requests are not allowed.' });
       if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ message: 'Cross-site requests are not allowed.' });
     }
@@ -113,14 +116,18 @@ export async function createApp({ db, client, events, realtimeReady = () => true
 
   const dummyHash = await hashPassword(newToken());
   const loginAttempts = new Map();
-  const attemptCleanup = setInterval(() => {
+  const pruneAttempts = () => {
     for (const [key, value] of loginAttempts) if (value.until <= Date.now()) loginAttempts.delete(key);
-  }, 60_000);
-  attemptCleanup.unref();
-  app.on('close', () => clearInterval(attemptCleanup));
+  };
+  if (!serverless) {
+    const attemptCleanup = setInterval(pruneAttempts, 60_000);
+    attemptCleanup.unref();
+    app.on('close', () => clearInterval(attemptCleanup));
+  }
 
   app.post('/api/auth/login', async (req, res) => {
     const credentials = loginSchema.parse(req.body);
+    if (serverless) pruneAttempts();
     const key = req.ip;
     const now = Date.now();
     let attempts = loginAttempts.get(key);
@@ -162,7 +169,11 @@ export async function createApp({ db, client, events, realtimeReady = () => true
     res.status(204).end();
   });
 
+  app.get('/api/realtime/config', (_req, res) => res.json(
+    serverless ? { mode: 'polling', intervalMs: 15000 } : { mode: 'streaming' },
+  ));
   app.get('/api/events', (req, res) => {
+    if (serverless) return res.status(409).json({ message: 'Use dashboard polling on this deployment.' });
     if (!realtimeReady()) return res.status(503).json({ message: 'Live updates are unavailable.' });
     res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     res.flushHeaders();
@@ -292,9 +303,13 @@ export async function createApp({ db, client, events, realtimeReady = () => true
   });
   app.use('/api', (_req, res) => res.status(404).json({ message: 'API endpoint not found.' }));
 
-  const dist = fileURLToPath(new URL('../dist/', import.meta.url));
-  app.use(express.static(dist));
-  app.get('/{*path}', (_req, res) => res.sendFile(`${dist}index.html`));
+  if (serveFrontend) {
+    const dist = fileURLToPath(new URL('../dist/', import.meta.url));
+    app.use(express.static(dist));
+    app.get('/{*path}', (_req, res) => res.sendFile(`${dist}index.html`));
+  } else {
+    app.use((_req, res) => res.status(404).json({ message: 'API endpoint not found.' }));
+  }
   app.use((error, _req, res, _next) => {
     if (res.headersSent) return res.end();
     if (error instanceof ZodError) return res.status(400).json({
