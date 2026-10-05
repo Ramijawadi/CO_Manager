@@ -155,6 +155,12 @@ Static assets are served by Vercel; frontend routes fall back to `index.html`.
    `/api/auth/session` should return JSON 401 before login, not frontend HTML.
    Then test login and a direct frontend route such as `/settings`.
 
+Missing or malformed database environment variables return a specific JSON 503
+message and `DatabaseConfigError` in the function logs, without exposing their
+values. Correct the named setting for the deployment's environment and redeploy.
+Other initialization failures retain a generic response; inspect the function's
+error name and code for authentication or Atlas connectivity failures.
+
 Dashboard polling does not require MongoDB change streams on Vercel; writes
 still require transaction/replica-set support. Polling failures are indicated
 as errors rather than a successful live connection. Login attempt counters

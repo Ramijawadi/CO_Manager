@@ -1,5 +1,6 @@
 import { connectDatabase } from './db.mjs';
 import { createApp } from './app.mjs';
+import { DatabaseConfigError } from './config.mjs';
 
 export function restoreApiPath(req) {
   const url = new URL(req.url, 'http://localhost');
@@ -46,10 +47,12 @@ export function createVercelHandler({ connect = connectDatabase, buildApp = crea
       });
     } catch (error) {
       console.error(`Vercel API initialization failed (${error.name}, code: ${error.code || 'unknown'}).`);
+      if (error instanceof DatabaseConfigError) console.error(error.message);
       res.statusCode = 503;
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({
-        message: 'API initialization failed. Check MONGODB_URI, MONGODB_DB_NAME and Atlas network access in the Vercel project settings.',
+        message: error instanceof DatabaseConfigError ? error.message
+          : 'API initialization failed. Check MONGODB_URI, MONGODB_DB_NAME and Atlas network access in the Vercel project settings.',
       }));
     }
   };

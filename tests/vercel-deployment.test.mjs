@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { createVercelHandler, restoreApiPath } from '../server/vercel-handler.mjs';
 import { hashPassword, tokenHash, cookieOptions } from '../server/auth.mjs';
+import { databaseConfig, DatabaseConfigError } from '../server/config.mjs';
 
 async function startServer(handler, t) {
   const server = createServer(handler);
@@ -89,6 +90,38 @@ test('failed cold starts return JSON and retry initialization on the next invoca
   assert.equal(success.status, 200);
   assert.equal(await success.text(), 'ready');
   assert.equal(attempts, 2);
+});
+
+test('database configuration distinguishes missing and malformed deployment values without exposing them', () => {
+  const valid = { MONGODB_URI: 'mongodb+srv://user:private-password@cluster.example.com/', MONGODB_DB_NAME: 'co_management' };
+  assert.deepEqual(databaseConfig(valid), { uri: valid.MONGODB_URI, name: valid.MONGODB_DB_NAME });
+  for (const [env, expected] of [
+    [{ ...valid, MONGODB_URI: undefined }, /MONGODB_URI is missing/],
+    [{ ...valid, MONGODB_URI: `"${valid.MONGODB_URI}"` }, /surrounding quotes/],
+    [{ ...valid, MONGODB_URI: `MONGODB_URI=${valid.MONGODB_URI}` }, /must start/],
+    [{ ...valid, MONGODB_URI: ` ${valid.MONGODB_URI}` }, /must start/],
+    [{ ...valid, MONGODB_DB_NAME: undefined }, /MONGODB_DB_NAME is missing/],
+    [{ ...valid, MONGODB_DB_NAME: '"co_management"' }, /without surrounding quotes/],
+  ]) {
+    assert.throws(() => databaseConfig(env), error => {
+      assert.ok(error instanceof DatabaseConfigError);
+      assert.match(error.message, expected);
+      assert.equal(error.message.includes('private-password'), false);
+      return true;
+    });
+  }
+});
+
+test('Vercel exposes only safe database configuration diagnostics', async t => {
+  const handler = createVercelHandler({
+    connect: async () => { databaseConfig({ MONGODB_URI: '"mongodb+srv://user:private-password@cluster.example.com/"' }); },
+  });
+  const base = await startServer(handler, t);
+  const response = await fetch(`${base}/api/auth/session`);
+  assert.equal(response.status, 503);
+  const { message } = await response.json();
+  assert.match(message, /MONGODB_URI contains surrounding quotes/);
+  assert.equal(message.includes('private-password'), false);
 });
 
 test('serverless Express supports HTTPS proxy login, secure cookies, polling and API-only routing', async t => {
