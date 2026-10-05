@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '../lib/api';
 
-type RealtimeStatus = 'connected' | 'polling' | 'disconnected' | 'error';
+export type RealtimeStatus = 'connected' | 'polling' | 'disconnected' | 'error';
 type RealtimeConfig = { mode: 'streaming' } | { mode: 'polling'; intervalMs: number };
 
-export function useDashboardRealtime() {
+export function useDatabaseRealtime() {
   const [status, setStatus] = useState<RealtimeStatus>('disconnected');
   const queryClient = useQueryClient();
 
@@ -28,7 +28,7 @@ export function useDashboardRealtime() {
               if (!stopped) setStatus('polling');
             } catch (error) {
               if (!stopped) {
-                console.error('Dashboard polling failed:', error);
+                console.error('Database polling failed:', error);
                 setStatus('error');
               }
             } finally {
@@ -50,7 +50,7 @@ export function useDashboardRealtime() {
         source.onerror = () => setStatus('error');
       } catch (error) {
         if (!stopped) {
-          console.error('Dashboard updates unavailable:', error);
+          console.error('Live database updates unavailable:', error);
           setStatus('error');
           timer = setTimeout(() => { void initialize(); }, 15000);
         }

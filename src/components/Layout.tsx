@@ -18,12 +18,14 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from '../lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
+import { useDatabaseRealtime } from '../hooks/useDatabaseRealtime';
 
 const { Header, Sider, Content } = AntLayout;
 
 const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { role, signOut: clearAuth } = useAuthStore();
+  const { status: realtimeStatus } = useDatabaseRealtime();
   const queryClient = useQueryClient();
   const {
     token: { colorBgContainer },
@@ -352,7 +354,7 @@ const AppLayout: React.FC = () => {
               overflow: 'hidden',
             }}
           >
-            <Outlet />
+            <Outlet context={realtimeStatus} />
           </div>
         </Content>
       </AntLayout>

@@ -9,6 +9,7 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useOutletContext } from 'react-router-dom';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/fr';
@@ -18,7 +19,7 @@ import {
   getTopProducts,
   getActiveSessionsList,
 } from '../features/dashboard/api';
-import { useDashboardRealtime } from '../hooks/useDashboardRealtime';
+import type { RealtimeStatus } from '../hooks/useDatabaseRealtime';
 import {
   LineChart,
   Line,
@@ -109,7 +110,7 @@ const LiveIndicator: React.FC<{ status: 'connected' | 'polling' | 'disconnected'
 };
 
 const Dashboard: React.FC = () => {
-  const { status: realtimeStatus } = useDashboardRealtime();
+  const realtimeStatus = useOutletContext<RealtimeStatus>();
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
     queryKey: ['dashboardStats'],

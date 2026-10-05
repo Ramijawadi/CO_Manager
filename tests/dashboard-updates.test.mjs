@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import ts from 'typescript';
 
 function loadHook(config, { failRefresh = false } = {}) {
-  const source = readFileSync(new URL('../src/hooks/useDashboardRealtime.ts', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../src/hooks/useDatabaseRealtime.ts', import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 },
   });
@@ -38,7 +38,7 @@ function loadHook(config, { failRefresh = false } = {}) {
     timer => { if (timer) timer.cleared = true; },
     { error: (...args) => requests.push(['error', ...args]) },
   );
-  exports.useDashboardRealtime();
+  exports.useDatabaseRealtime();
   return { states, timers, streams, requests, cleanup: () => cleanup(), refreshes: () => refreshes };
 }
 

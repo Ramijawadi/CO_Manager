@@ -12,10 +12,11 @@ reports using React, TypeScript, Vite and MongoDB.
   server-side sessions in HttpOnly, SameSite cookies. Session tokens are hashed
   in the database and expire after seven days.
 - Live updates: MongoDB change streams delivered through authenticated
-  server-sent events. The frontend refreshes query caches on changes and
-  reconnection; it reports a live-update error instead of pretending to connect.
-  On Vercel, dashboard updates use authenticated polling every 15 seconds
-  instead of permanent connections, with a distinct polling indicator.
+  server-sent events. All authenticated app views refresh their active query
+  data on database changes and reconnection; the app reports a live-update
+  error instead of pretending to connect. On Vercel, authenticated app views
+  poll every 15 seconds instead of using permanent connections, with a distinct
+  polling indicator.
 - Exports: PDF through jsPDF and Excel through XLSX.
 
 MongoDB credentials are used **only by the backend**, never by the browser.
@@ -190,7 +191,7 @@ connections. Restart the API if its change stream reports a terminal error.
 - **Invalid subscription plan:** reload plans and select a saved UUID-backed
   plan. Failed reads/writes are surfaced; local placeholder plans are not used.
 - **Live updates unavailable:** check replica-set/change-stream support and the
-  API logs, then restart the API. A reconnect refreshes cached dashboard data.
+  API logs, then restart the API. A reconnect refreshes active app data.
 - **Session checkout:** `time_cost` starts as null and is stored as a finite,
   nonnegative number when a session completes. No SQL column migration is needed.
 
