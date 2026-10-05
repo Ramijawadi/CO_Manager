@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { apiRequest } from '../lib/api';
+import { apiRequest, apiUrl } from '../lib/api';
 
 export type RealtimeStatus = 'connected' | 'polling' | 'disconnected' | 'error';
 type RealtimeConfig = { mode: 'streaming' } | { mode: 'polling'; intervalMs: number };
@@ -38,7 +38,7 @@ export function useDatabaseRealtime() {
           void poll();
           return;
         }
-        source = new EventSource('/api/events');
+        source = new EventSource(apiUrl('/events'));
         source.addEventListener('ready', () => {
           setStatus('connected');
           refresh();

@@ -8,8 +8,16 @@ export class ApiError extends Error {
   }
 }
 
+export function apiUrl(path: string): string {
+  const base = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+  if (base !== '/api') {
+    throw new Error('VITE_API_URL must be /api for this same-origin deployment.');
+  }
+  return `${base}/${path.replace(/^\/+/, '')}`;
+}
+
 export async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`/api${path}`, {
+  const response = await fetch(apiUrl(path), {
     ...options,
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...options.headers },

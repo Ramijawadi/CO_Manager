@@ -24,7 +24,10 @@ function loadHook(config, { failRefresh = false } = {}) {
       useEffect: callback => { cleanup = callback(); },
     },
     '@tanstack/react-query': { useQueryClient: () => client },
-    '../lib/api': { apiRequest: async (...args) => { requests.push(args); return config; } },
+    '../lib/api': {
+      apiRequest: async (...args) => { requests.push(args); return config; },
+      apiUrl: path => `/api${path}`,
+    },
   };
   class FakeEventSource {
     constructor(url) { this.url = url; this.listeners = {}; this.closed = false; streams.push(this); }

@@ -135,6 +135,11 @@ Static assets are served by Vercel; frontend routes fall back to `index.html`.
    `MONGODB_DB_NAME=co_management` for Production and any Preview environments
    you use. Local `.env` is ignored by Git and is **not deployed**. Paste the URI
    as its actual value, without surrounding quotes or a `MONGODB_URI=` prefix.
+   Set `VITE_API_URL=/api` as well. All frontend requests, including local live
+   events, use this same-origin base (also the default when unset). Absolute URLs
+   and other bases are rejected to prevent production requests to a development
+   server. Local development still uses Vite's `/api` proxy to port 3001.
+   Vite embeds this public setting at build time, so redeploy after changing it.
 3. Ensure Atlas permits network connections from your Vercel deployment.
    Prefer static egress/secure networking and a restricted Atlas access list.
    Use a least-privilege database user; never expose its credentials via `VITE_`.
