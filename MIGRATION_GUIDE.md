@@ -25,8 +25,9 @@ The former login defaults can be used only if you explicitly choose them when
 provisioning. Shared beta testing can prefill a provisioned account through
 `VITE_BETA_LOGIN_EMAIL` and `VITE_BETA_LOGIN_PASSWORD` in local `.env`.
 These login values are public in the browser; all testers share the account's
-permissions. Remove both variables and rebuild before a private or production
-deployment, and use a new strong password.
+permissions. When these variables are unset, example credentials appear only as
+placeholders and are not submitted. Remove both variables and rebuild before a
+private or production deployment, and use a new strong password.
 
 UUID-based public IDs, subscription dates, join-shaped API responses, daily
 closure upserts and deletion cascades are preserved. Plan deletion leaves

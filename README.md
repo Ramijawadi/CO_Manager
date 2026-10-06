@@ -62,16 +62,21 @@ The admin command prompts for an email and a password of at least ten characters
 Alternatively, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` privately in your local
 process environment. The command refuses to overwrite existing accounts.
 For shared beta testing, the login screen can prefill `VITE_BETA_LOGIN_EMAIL`
-and `VITE_BETA_LOGIN_PASSWORD` from local `.env`. These values are public in the
-browser build: anyone can use the account and its permissions. Remove both
-variables and rebuild before a private or production deployment. Database
-credentials must still remain server-only.
+and `VITE_BETA_LOGIN_PASSWORD` from local `.env`. When unset, the example
+credentials are shown only as placeholders and are not submitted. Prefilled
+values are public in the browser build: anyone can use the account and its
+permissions. Remove both variables and rebuild before a private or production
+deployment. Database credentials must still remain server-only.
 
 Development starts the API on port 3001 and Vite together. Vite proxies `/api`
 to the backend, including cookies and live events. If changing the API port,
 also change the development proxy target in `vite.config.ts`.
 
 ## Data model and behavior
+
+Expanded session consumption tables keep their headers fixed while product rows
+scroll, with five products per page. The sessions area also scrolls so expanded
+panels and pagination remain accessible on smaller screens.
 
 Setup creates validated collections, unique UUID indexes, query indexes, a
 singleton hourly-rate setting (1 DT), and default plans:

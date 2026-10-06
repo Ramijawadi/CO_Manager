@@ -148,8 +148,10 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         dataSource={session.session_products || []}
         columns={columns}
         rowKey="id"
+        scroll={{ x: 520, y: 240 }}
         pagination={{ 
           defaultPageSize: 5, 
+          showSizeChanger: false,
           showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}`,
           style: { marginTop: '16px' }
         }}

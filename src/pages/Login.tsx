@@ -164,10 +164,10 @@ const Login: React.FC = () => {
               </label>
               <Input
                 type="email"
-                placeholder="admin@coworking.com"
+                placeholder="comanager@gmail.com"
                 prefix={<MailOutlined style={{ color: '#94a3b8' }} />}
-                value={"comanager@gmail.com"}
                 onChange={(e) => setEmail(e.target.value)}
+                value={email}
                 required
                 size="large"
                 style={{ borderRadius: 10, padding: '10px 14px' }}
@@ -178,10 +178,10 @@ const Login: React.FC = () => {
                 Mot de passe
               </label>
               <Input.Password
-                placeholder="Entrez votre mot de passe"
+                placeholder="manager2026"
                 prefix={<LockOutlined style={{ color: '#94a3b8' }} />}
-                value={"manager2026"}
                 onChange={(e) => setPassword(e.target.value)}
+                value={password}
                 required
                 size="large"
                 style={{ borderRadius: 10, padding: '10px 14px' }}
