@@ -15,6 +15,8 @@ import Settings from './pages/Settings';
 import Login from './pages/Login';
 import Subscriptions from './pages/Subscriptions';
 import Products from './pages/Products';
+import Expenses from './pages/Expenses';
+import Rooms from './pages/Rooms';
 
 dayjs.locale('fr');
 
@@ -103,6 +105,8 @@ const App: React.FC = () => {
                 <Route path="sessions" element={<Sessions />} />
                 <Route path="subscriptions" element={<Subscriptions />} />
                 <Route path="products" element={<Products />} />
+                <Route path="expenses" element={<Expenses />} />
+                <Route path="rooms" element={<Rooms />} />
                 <Route path="reports" element={<Reports />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

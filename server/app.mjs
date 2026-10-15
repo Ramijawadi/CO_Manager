@@ -3,6 +3,10 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
 import { schemas, loginSchema, idSchema, validateDates } from './validation.mjs';
+import { getFinancialYear } from './financial.mjs';
+import {
+  assertRentalAvailability, assertUtilityPaymentRental, lockRooms, tunisDate,
+} from './room-management.mjs';
 import {
   COOKIE_NAME, SESSION_DURATION, cookieOptions, newToken, readToken,
   tokenHash, publicUser, verifyPassword, hashPassword,
@@ -61,9 +65,11 @@ async function checkReferences(db, table, document, session) {
     sessions: [['customers', 'customer_id']],
     session_products: [['sessions', 'session_id'], ['products', 'product_id']],
     subscriptions: [['customers', 'customer_id'], ['plans', 'plan_id']],
+    subscription_payments: [['subscriptions', 'subscription_id']],
   }[table] || [];
   for (const [collection, field] of references) {
     if (document[field] === null && field === 'plan_id') continue;
+    if (document[field] === null && table === 'subscription_payments') continue;
     // A write lock makes concurrent parent deletion conflict and retry the transaction.
     const parent = await db.collection(collection).findOneAndUpdate(
       { id: document[field] }, { $inc: { _reference_version: 1 } }, { session, returnDocument: 'after' },
@@ -82,8 +88,16 @@ async function deleteRecord(db, table, id, session) {
     const sessions = await db.collection('sessions').find({ customer_id: id }, { session }).toArray();
     await db.collection('session_products').deleteMany({ session_id: { $in: sessions.map(row => row.id) } }, { session });
     await db.collection('sessions').deleteMany({ customer_id: id }, { session });
+    const subscriptions = await db.collection('subscriptions').find({ customer_id: id }, { session }).toArray();
+    await db.collection('subscription_payments').updateMany(
+      { subscription_id: { $in: subscriptions.map(row => row.id) } },
+      { $set: { subscription_id: null, updated_at: new Date().toISOString() } }, { session },
+    );
     await db.collection('subscriptions').deleteMany({ customer_id: id }, { session });
   }
+  if (table === 'subscriptions') await db.collection('subscription_payments').updateMany(
+    { subscription_id: id }, { $set: { subscription_id: null, updated_at: new Date().toISOString() } }, { session },
+  );
   if (table === 'sessions') await db.collection('session_products').deleteMany({ session_id: id }, { session });
   if (table === 'products') await db.collection('session_products').deleteMany({ product_id: id }, { session });
   if (table === 'plans') await db.collection('subscriptions').updateMany(
@@ -208,12 +222,19 @@ export async function createApp({
     res.json({ sessions, session_products: items, activeSubscriptions: subscriptions, activeSessions });
   });
 
+  app.get('/api/reports/financial', async (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Financial reports are available for administrators only.' });
+    const { year } = z.object({ year: z.coerce.number().int().min(2000).max(9998) }).strict().parse(req.query);
+    res.json(await getFinancialYear(db, year));
+  });
+
   app.get('/api/:table', async (req, res) => {
     const { table } = req.params;
     if (!Object.hasOwn(schemas, table)) throw notFound();
     const query = querySchema.parse(req.query);
     const filter = {};
     if (query.status) filter.status = query.status;
+    if (['rooms', 'room_rentals', 'utility_payments'].includes(table)) filter.archived = { $ne: true };
     if (query.customer_id) filter.customer_id = query.customer_id;
     if (query.since) filter[table === 'sessions' ? 'entry_time' : 'created_at'] = { $gte: query.since };
     if (query.start || query.end) {
@@ -230,8 +251,13 @@ export async function createApp({
       filter.end_date = { $gte: query.active_on };
     }
     const sort = table === 'products' ? { name: 1 } : table === 'plans' ? { price: 1 }
-      : table === 'daily_closures' ? { closure_date: -1 } : table === 'sessions' ? { entry_time: -1 } : { created_at: -1 };
-    let cursor = db.collection(table).find(filter, { projection }).sort(sort);
+      : table === 'daily_closures' ? { closure_date: -1 } : table === 'sessions' ? { entry_time: -1 }
+      : table === 'expenses' ? { expense_date: -1, created_at: -1 }
+      : table === 'rooms' ? { room_number: 1 }
+      : table === 'room_rentals' ? { entry_date: -1, created_at: -1 }
+      : table === 'utility_payments' ? { billing_period: -1, created_at: -1 } : { created_at: -1 };
+    const order = table === 'subscription_payments' ? { payment_date: -1, created_at: -1 } : sort;
+    let cursor = db.collection(table).find(filter, { projection }).sort(order);
     if (query.limit) cursor = cursor.limit(query.limit);
     const rows = await cursor.toArray();
     if (table === 'settings' && !rows.length) {
@@ -258,9 +284,37 @@ export async function createApp({
     if (table === 'products') document.description = input.description ?? '';
     if (table === 'subscriptions') document.status = input.status ?? 'active';
     if (table === 'sessions') Object.assign(document, { entry_time: now, exit_time: null, status: 'active', time_cost: null });
+    if (table === 'rooms') Object.assign(document, {
+      name: input.name || input.room_number, notes: input.notes ?? '', archived: false,
+    });
+    if (table === 'room_rentals') Object.assign(document, {
+      phone: input.phone ?? '', actual_departure_date: input.actual_departure_date ?? null,
+      notes: input.notes ?? '', archived: false,
+    });
+    if (table === 'utility_payments') Object.assign(document, {
+      payment_date: input.payment_date ?? null, amount: input.amount ?? null,
+      invoice_reference: input.invoice_reference ?? '', notes: input.notes ?? '', archived: false,
+    });
     validateDates(document);
     const result = await client.withSession(session => session.withTransaction(async () => {
+      if (table === 'room_rentals') {
+        await lockRooms(db, [document.room_id], session);
+        await assertRentalAvailability(db, document, null, session);
+      }
+      if (table === 'utility_payments') {
+        await assertUtilityPaymentRental(db, document.rental_id, session);
+      }
       await checkReferences(db, table, document, session);
+      if (table === 'subscription_payments') {
+        const subscription = await db.collection('subscriptions').findOne({ id: input.subscription_id }, { session });
+        const [customer, plan] = await Promise.all([
+          db.collection('customers').findOne({ id: subscription.customer_id }, { session }),
+          subscription.plan_id ? db.collection('plans').findOne({ id: subscription.plan_id }, { session }) : null,
+        ]);
+        if (!customer) throw badRequest('The subscription customer no longer exists.');
+        document.customer_name = customer.full_name;
+        document.plan_name = plan?.name ?? 'Plan supprimé';
+      }
       if (table === 'daily_closures') {
         return db.collection(table).findOneAndUpdate(
           { closure_date: input.closure_date },
@@ -269,6 +323,16 @@ export async function createApp({
         );
       }
       await db.collection(table).insertOne(document, { session });
+      if (table === 'room_rentals') {
+        const period = document.entry_date.slice(0, 7);
+        for (const type of ['water', 'electricity']) {
+          await db.collection('utility_payments').insertOne({
+            id: randomUUID(), rental_id: document.id, type, billing_period: period,
+            status: 'unpaid', payment_date: null, amount: null, invoice_reference: '',
+            notes: '', archived: false, created_at: now, updated_at: now,
+          }, { session });
+        }
+      }
       const { _id, ...publicDocument } = document;
       return publicDocument;
     }));
@@ -283,9 +347,24 @@ export async function createApp({
     const result = await client.withSession(session => session.withTransaction(async () => {
       const existing = await db.collection(table).findOne({ id }, { session });
       if (!existing) throw notFound();
+      if (['rooms', 'room_rentals', 'utility_payments'].includes(table) && existing.archived) {
+        throw badRequest('Les enregistrements archivés ne peuvent pas être modifiés.');
+      }
       if (table === 'sessions' && existing.status !== 'active') throw badRequest('This session has already ended.');
       const document = { ...existing, ...input };
       validateDates(document);
+      if (table === 'room_rentals') {
+        await lockRooms(db, [existing.room_id, document.room_id], session);
+        await assertRentalAvailability(db, document, id, session);
+      }
+      if (table === 'utility_payments') {
+        schemas.utility_payments.create.parse({
+          rental_id: document.rental_id, type: document.type, billing_period: document.billing_period,
+          status: document.status, payment_date: document.payment_date, amount: document.amount,
+          invoice_reference: document.invoice_reference, notes: document.notes,
+        });
+        await assertUtilityPaymentRental(db, document.rental_id, session);
+      }
       await checkReferences(db, table, document, session);
       return db.collection(table).findOneAndUpdate(
         { id }, { $set: { ...input, updated_at: new Date().toISOString() } },
@@ -298,6 +377,27 @@ export async function createApp({
     const { table, id } = req.params;
     if (!Object.hasOwn(schemas, table) || ['settings', 'daily_closures'].includes(table)) throw notFound();
     idSchema.parse(id);
+    if (['rooms', 'room_rentals', 'utility_payments'].includes(table)) {
+      await client.withSession(session => session.withTransaction(async () => {
+        const record = await db.collection(table).findOne({ id, archived: { $ne: true } }, { session });
+        if (!record) throw notFound();
+        if (table === 'rooms') {
+          await lockRooms(db, [id], session);
+          const openRental = await db.collection('room_rentals').findOne({
+            room_id: id, archived: { $ne: true }, actual_departure_date: null,
+          }, { session });
+          if (openRental) throw badRequest('Impossible d’archiver une chambre avec une location en cours ou prévue.');
+        }
+        if (table === 'room_rentals') await lockRooms(db, [record.room_id], session);
+        if (table === 'room_rentals' && !record.actual_departure_date && record.entry_date <= tunisDate()) {
+          throw badRequest('Enregistrez la date de sortie réelle avant d’archiver une location active.');
+        }
+        await db.collection(table).updateOne(
+          { id }, { $set: { archived: true, updated_at: new Date().toISOString() } }, { session },
+        );
+      }));
+      return res.status(204).end();
+    }
     await client.withSession(session => session.withTransaction(() => deleteRecord(db, table, id, session)));
     res.status(204).end();
   });

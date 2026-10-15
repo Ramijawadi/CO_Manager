@@ -10,6 +10,8 @@ import {
   LogoutOutlined,
   CreditCardOutlined,
   ShoppingOutlined,
+  WalletOutlined,
+  HomeOutlined,
   DownOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -71,6 +73,16 @@ const AppLayout: React.FC = () => {
       label: 'Produits',
     },
     {
+      key: '/expenses',
+      icon: <WalletOutlined />,
+      label: 'Frais',
+    },
+    {
+      key: '/rooms',
+      icon: <HomeOutlined />,
+      label: 'Gestion des chambres',
+    },
+    {
       key: '/settings',
       icon: <SettingOutlined />,
       label: 'Paramètres',
@@ -103,6 +115,8 @@ const AppLayout: React.FC = () => {
     '/sessions': 'Sessions',
     '/subscriptions': 'Abonnements',
     '/products': 'Produits',
+    '/expenses': 'Frais',
+    '/rooms': 'Gestion des chambres',
     '/reports': 'Rapports',
     '/settings': 'Paramètres',
   };
@@ -120,13 +134,15 @@ const AppLayout: React.FC = () => {
           background: '#0f172a',
           boxShadow: '2px 0 12px 0 rgba(0,0,0,0.08)',
           zIndex: 100,
-          overflow: 'auto',
+          overflow: 'hidden',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
+        <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div
           style={{
             height: 72,
+            flexShrink: 0,
             margin: collapsed ? '16px 0 24px' : '16px 16px 24px',
             display: 'flex',
             alignItems: 'center',
@@ -173,7 +189,7 @@ const AppLayout: React.FC = () => {
             />
           )}
         </div>
-        <div style={{ padding: collapsed ? '0 0' : '0 8px', transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: collapsed ? '0 0' : '0 8px', transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <Menu
             theme="dark"
             mode="inline"
@@ -189,10 +205,8 @@ const AppLayout: React.FC = () => {
         {!collapsed && (
           <div
             style={{
-              position: 'absolute',
-              bottom: 24,
-              left: 16,
-              right: 16,
+              flexShrink: 0,
+              margin: '16px 16px 24px',
               padding: '14px 16px',
               background: 'rgba(255,255,255,0.06)',
               borderRadius: 12,
@@ -229,10 +243,8 @@ const AppLayout: React.FC = () => {
         {collapsed && (
           <div
             style={{
-              position: 'absolute',
-              bottom: 24,
-              left: 0,
-              right: 0,
+              flexShrink: 0,
+              margin: '16px 0 24px',
               display: 'flex',
               justifyContent: 'center',
             }}
@@ -251,6 +263,7 @@ const AppLayout: React.FC = () => {
             />
           </div>
         )}
+        </div>
       </Sider>
       <AntLayout style={{ display: 'flex', flexDirection: 'column', background: '#f8fafc' }}>
         <Header

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Card, Typography } from 'antd';
+import { Card, Tabs, Typography } from 'antd';
 import SubscriptionList from '../features/subscriptions/SubscriptionList';
+import PaymentList from '../features/subscriptions/PaymentList';
 
 const { Text } = Typography;
 
@@ -17,7 +18,11 @@ const Subscriptions: React.FC = () => {
         style={{ borderRadius: 14, border: '1px solid #f1f5f9', flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}
         styles={{ body: { flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', padding: 0 } }}
       >
-        <SubscriptionList />
+        <Tabs style={{ height: '100%' }} tabBarStyle={{ padding: '0 24px', marginBottom: 0 }}
+          items={[
+            { key: 'subscriptions', label: 'Abonnements', children: <SubscriptionList /> },
+            { key: 'payments', label: 'Paiements', children: <PaymentList /> },
+          ]} />
       </Card>
     </div>
   );

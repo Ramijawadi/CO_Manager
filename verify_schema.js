@@ -18,6 +18,21 @@ try {
   }
   if (!await db.collection('settings').findOne({ singleton: true })) throw new Error('Settings are missing. Run npm run setup-db.');
   if (!await db.collection('users').findOne({ role: 'admin' })) throw new Error('An admin account is missing. Run npm run create-admin.');
+  const roomIndexes = await db.collection('rooms').indexes();
+  if (!roomIndexes.some(index => index.key.room_number === 1 && index.unique)) {
+    throw new Error('Missing unique room number index.');
+  }
+  for (let room = 1; room <= 14; room++) {
+    const roomNumber = `Chambre ${String(room).padStart(2, '0')}`;
+    if (!await db.collection('rooms').findOne({ room_number: roomNumber })) {
+      throw new Error(`Default room is missing: ${roomNumber}. Run npm run setup-db.`);
+    }
+  }
+  const utilityIndexes = await db.collection('utility_payments').indexes();
+  if (!utilityIndexes.some(index => index.key.rental_id === 1 && index.key.type === 1 &&
+    index.key.billing_period === 1 && index.unique)) {
+    throw new Error('Missing unique utility billing period index.');
+  }
   console.log('All MongoDB schema checks passed. Verification made no writes.');
 } catch (error) {
   console.error(`Schema verification failed (${error.name}). ${error.name === 'Error' ? error.message : 'Check MongoDB connection and database permissions.'}`);

@@ -7,6 +7,7 @@ import { getReportData, closeDay, getDailyClosures } from '../features/reports/a
 import { exportToCSV, exportToExcel, exportToPDF } from '../features/reports/exportUtils';
 import { getDashboardStats } from '../features/dashboard/api';
 import { useRoleGuard } from '../hooks/useRoleGuard';
+import FinancialSummary from '../features/reports/FinancialSummary';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -106,7 +107,7 @@ const Reports: React.FC = () => {
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: 16 }}>
+    <div style={{ height: '100%', overflow: 'auto', padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
         <Text style={{ fontSize: 15, color: '#64748b' }}>
           Analysez vos données et archivage des journées
@@ -123,6 +124,8 @@ const Reports: React.FC = () => {
           </Button>
         </Popconfirm>
       </div>
+
+      <FinancialSummary />
 
       <Card
         bordered={false}

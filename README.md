@@ -1,6 +1,6 @@
 # Co-Management System
 
-Management of customers, sessions, subscriptions, products, daily closures and
+Management of customers, sessions, subscriptions, products, expenses, daily closures and
 reports using React, TypeScript, Vite and MongoDB.
 
 ## Architecture
@@ -73,6 +73,79 @@ to the backend, including cookies and live events. If changing the API port,
 also change the development proxy target in `vite.config.ts`.
 
 ## Data model and behavior
+
+The **Frais** sidebar page manages expense records with a name, category,
+date, amount and optional notes. Internet, electricity, water, rent,
+maintenance and supplies are suggested categories; users can enter their own.
+When editing an expense, the category dropdown always shows the full list,
+regardless of the saved or typed value. Select another category directly,
+or type a custom category.
+The table supports search, category filtering, sorting, pagination and a total
+for all matching records. Admin and staff can create, edit and delete expenses;
+demo accounts can only read them. Expenses do not change revenue reports or
+daily closures.
+
+### Gestion des chambres
+
+The authenticated **Gestion des chambres** page manages rooms, tenant rentals,
+and separate water/electricity bills. Run `npm run setup-db` once after updating
+to create the validated `rooms`, `room_rentals`, and `utility_payments`
+collections and indexes. Setup idempotently initializes **Chambre 01** through
+**Chambre 14** without replacing existing rooms or records.
+
+Room availability and occupancy statistics are derived from rental records.
+Rental date ranges are validated on the API, and MongoDB transactions lock a
+room while checking for overlapping rentals. Creating a rental also creates
+unpaid water and electricity records for its entry month. Further bills are
+tracked independently by rental, utility type, and billing month; payment
+amounts are stored in integer millimes. Paid bills require a payment date.
+Room, rental, and utility deletion is implemented as archiving so the rental
+and payment history remains in MongoDB. Admin and staff accounts can manage
+these records; demo accounts remain read-only.
+
+The API uses the existing authenticated collection endpoints:
+`/api/rooms`, `/api/room_rentals`, and `/api/utility_payments` (GET, POST,
+PATCH by ID, and DELETE by ID; DELETE archives these records). No new
+environment variables or additional database are required. For local setup,
+run `npm run setup-db` followed by `npm run dev`; verify with `npm test` and
+`npm run build`. Deploy using the existing deployment workflow after applying
+the same repeatable `npm run setup-db` initialization against the configured
+MongoDB database.
+
+Expense `amount` is stored and exchanged by the API in integer millimes
+(1500 = 1.500 DT), with positive amounts and up to three decimal places in
+the form. Run `npm run setup-db` once after this update to create the
+`expenses` collection, validator and date index without replacing existing
+business records.
+
+### Monthly and yearly financial statistics
+
+**Rapports > Bilan financier** (admin only) compares income, expenses and net
+profit/loss for any selected month or year, including a 12-month annual
+breakdown and Excel export. Empty months remain visible. Results use the
+Tunisia calendar (Africa/Tunis, UTC+1):
+
+- Completed session time charges count on checkout (`exit_time`), not arrival.
+- Product sales count on the consumption record's `created_at`.
+- Subscription income counts only actual payments recorded under
+  **Abonnements > Paiements**, on their `payment_date`.
+- Expenses count on `expense_date`.
+- Net result = all three income sources minus expenses. Daily closure archives
+  are never added again, avoiding double-counting.
+
+Payment management supports separate installments, edits and deletion of
+mistaken entries, with a stored amount in integer millimes. Customer and plan
+names are saved with each payment; cancellation or deletion of a subscription
+does not erase its payments or change its recorded amounts. Deleting a customer
+also retains payments. Historical subscriptions are not automatically marked
+paid: enter their actual payment dates/amounts before relying on past balances.
+Session and product income assumes recorded charges/sales were collected;
+there is no session debt, refund, tax or depreciation tracking. These are
+operational profit/loss statistics, not a complete accounting ledger.
+
+After updating, run `npm run setup-db` once to create validated
+`subscription_payments` storage and the reporting indexes. Existing business
+records are not replaced.
 
 Expanded session consumption tables keep their headers fixed while product rows
 scroll, with five products per page. The sessions area also scrolls so expanded
