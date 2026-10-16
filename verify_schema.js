@@ -16,6 +16,15 @@ try {
   if (!sessionIndexes.some(index => index.key.expires_at === 1 && index.expireAfterSeconds === 0)) {
     throw new Error('Missing authentication session expiry index.');
   }
+  const workSessionIndexes = await db.collection('work_sessions').indexes();
+  if (!workSessionIndexes.some(index => index.key.employee_id === 1 && index.unique &&
+    index.partialFilterExpression?.status === 'active')) {
+    throw new Error('Missing unique active employee work-session index. Run npm run setup-db.');
+  }
+  if (!workSessionIndexes.some(index => index.key.employee_id === 1 && index.key.start_request_ids === 1 &&
+    index.unique && index.partialFilterExpression?.start_request_ids?.$exists === true)) {
+    throw new Error('Missing unique work-session retry index. Run npm run setup-db.');
+  }
   if (!await db.collection('settings').findOne({ singleton: true })) throw new Error('Settings are missing. Run npm run setup-db.');
   if (!await db.collection('users').findOne({ role: 'admin' })) throw new Error('An admin account is missing. Run npm run create-admin.');
   const roomIndexes = await db.collection('rooms').indexes();

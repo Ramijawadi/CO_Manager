@@ -55,7 +55,7 @@ test('rental availability rejects overlaps but allows a new rental after the act
   assert.equal(initialRooms()[13].room_number, 'Chambre 14');
 });
 
-test('database setup creates room collections, indexes and 14 idempotent default rooms', async () => {
+test('database setup creates operational collections, shift indexes and 14 idempotent default rooms', async () => {
   const collections = new Map();
   const indexes = [];
   const insertedRooms = [];
@@ -72,10 +72,18 @@ test('database setup creates room collections, indexes and 14 idempotent default
   assert.equal(insertedRooms.length, 14);
   assert.deepEqual(collections.get('rooms').validator.$jsonSchema.required,
     ['id', 'room_number', 'name', 'archived']);
+  assert.deepEqual(collections.get('work_sessions').validator.$jsonSchema.required,
+    ['id', 'employee_id', 'start_time', 'status']);
   assert.ok(indexes.some(index => index.name === 'rooms' && index.key.room_number === 1 && index.options.unique));
   assert.ok(indexes.some(index => index.name === 'room_rentals' && index.key.room_id === 1));
   assert.ok(indexes.some(index => index.name === 'utility_payments' &&
     index.options.unique && index.options?.partialFilterExpression?.archived === false));
+  assert.ok(indexes.some(index => index.name === 'work_sessions' && index.options.unique &&
+    index.options?.partialFilterExpression?.status === 'active'));
+  assert.ok(indexes.some(index => index.name === 'work_sessions' && index.key.start_request_ids === 1 &&
+    index.options.unique && index.options?.partialFilterExpression?.start_request_ids?.$exists === true));
+  assert.ok(indexes.some(index => index.name === 'admin_audit_logs' &&
+    index.key.target_type === 1 && index.key.target_id === 1));
 });
 
 test('room rental and utility CRUD persists bills and blocks overlapping tenants', async t => {

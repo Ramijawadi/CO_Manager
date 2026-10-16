@@ -2,7 +2,12 @@ import express from 'express';
 import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
-import { schemas, loginSchema, idSchema, validateDates } from './validation.mjs';
+import {
+  schemas, loginSchema, registrationSchema, employeeStatusSchema, shiftCloseSchema,
+  startShiftSchema, idSchema, validateDates, notificationListSchema,
+  notificationActionSchema, adminNotificationSchema, operationalRequestSchema,
+  requestListSchema, requestUpdateSchema,
+} from './validation.mjs';
 import { getFinancialYear } from './financial.mjs';
 import {
   assertRentalAvailability, assertUtilityPaymentRental, lockRooms, tunisDate,
@@ -11,10 +16,25 @@ import {
   COOKIE_NAME, SESSION_DURATION, cookieOptions, newToken, readToken,
   tokenHash, publicUser, verifyPassword, hashPassword,
 } from './auth.mjs';
+import { createNotification, notifyAdmins, publicNotification } from './notifications.mjs';
 
 const projection = { _id: 0, singleton: 0, _reference_version: 0 };
+const RECENT_START_REQUESTS = 20;
+const tunisMidnight = date => new Date(`${date}T00:00:00+01:00`);
 const notFound = () => Object.assign(new Error('Record not found.'), { status: 404 });
 const badRequest = message => Object.assign(new Error(message), { status: 400 });
+const publicOperationalRequest = request => ({
+  id: request.id,
+  employee_id: request.employee_id,
+  type: request.type,
+  title: request.title,
+  message: request.message,
+  status: request.status,
+  admin_id: request.admin_id ?? null,
+  admin_response: request.admin_response ?? null,
+  created_at: request.created_at,
+  updated_at: request.updated_at,
+});
 const querySchema = z.object({
   status: z.enum(['active', 'completed', 'cancelled', 'expired']).optional(),
   customer_id: idSchema.optional(),
@@ -22,6 +42,20 @@ const querySchema = z.object({
   start: z.iso.date().optional(), end: z.iso.date().optional(),
   active_on: z.iso.date().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+}).strict();
+const employeeListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  status: z.enum(['pending', 'active', 'rejected', 'disabled']).optional(),
+  search: z.string().trim().max(200).optional(),
+}).strict();
+const workSessionListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(25),
+  employeeId: idSchema.optional(),
+  status: z.enum(['active', 'completed']).optional(),
+  start: z.iso.date().optional(),
+  end: z.iso.date().optional(),
 }).strict();
 
 export async function joinRows(db, table, rows) {
@@ -107,7 +141,9 @@ async function deleteRecord(db, table, id, session) {
 }
 
 export async function createApp({
-  db, client, events, realtimeReady = () => true, serverless = false, serveFrontend = true,
+  db, client, events, realtimeReady = () => true,
+  notificationRealtimeReady = () => !serverless || Boolean(process.env.SOCKET_SERVER_URL),
+  serverless = false, serveFrontend = true,
 }) {
   const app = express();
   app.disable('x-powered-by');
@@ -133,6 +169,16 @@ export async function createApp({
   const pruneAttempts = () => {
     for (const [key, value] of loginAttempts) if (value.until <= Date.now()) loginAttempts.delete(key);
   };
+  const consumeRateLimit = (key, maxAttempts, windowMs) => {
+    if (serverless) pruneAttempts();
+    const now = Date.now();
+    let attempts = loginAttempts.get(key);
+    if (!attempts || attempts.until <= now) {
+      attempts = { count: 0, until: now + windowMs };
+      loginAttempts.set(key, attempts);
+    }
+    return ++attempts.count <= maxAttempts;
+  };
   if (!serverless) {
     const attemptCleanup = setInterval(pruneAttempts, 60_000);
     attemptCleanup.unref();
@@ -152,7 +198,9 @@ export async function createApp({
     if (++attempts.count > 20) return res.status(429).json({ message: 'Too many login attempts. Try again in 15 minutes.' });
     const user = await db.collection('users').findOne({ email: credentials.email.toLowerCase() });
     const matches = await verifyPassword(credentials.password, user?.password_hash || dummyHash);
-    if (!user || !matches) return res.status(401).json({ message: 'Invalid email or password.' });
+    if (!user || !matches || (user.status && user.status !== 'active')) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
     loginAttempts.delete(key);
     const token = newToken();
     await db.collection('auth_sessions').insertOne({
@@ -163,6 +211,49 @@ export async function createApp({
     res.json({ user: publicUser(user) });
   });
 
+  app.post('/api/auth/register', async (req, res) => {
+    const registration = registrationSchema.parse(req.body);
+    if (serverless) pruneAttempts();
+    const key = `register:${req.ip}`;
+    const nowMs = Date.now();
+    let attempts = loginAttempts.get(key);
+    if (!attempts || attempts.until <= nowMs) {
+      attempts = { count: 0, until: nowMs + 60 * 60 * 1000 };
+      loginAttempts.set(key, attempts);
+    }
+    if (++attempts.count > 10) {
+      return res.status(429).json({ message: 'Too many registration attempts. Try again later.' });
+    }
+    const now = new Date().toISOString();
+    const user = {
+      id: randomUUID(),
+      full_name: registration.fullName,
+      email: registration.email.trim().toLowerCase(),
+      phone: registration.phone || '',
+      password_hash: await hashPassword(registration.password),
+      role: 'employee',
+      status: process.env.EMPLOYEE_APPROVAL_REQUIRED === 'true' ? 'pending' : 'active',
+      created_at: now,
+      updated_at: now,
+    };
+    await client.withSession(session => session.withTransaction(async () => {
+      await db.collection('users').insertOne(user, { session });
+      if (user.status === 'pending') {
+        await notifyAdmins(db, {
+          type: 'employee_approval',
+          title: 'Nouvelle demande d’accès',
+          message: `Le compte de ${user.full_name} attend votre approbation.`,
+          priority: 'high',
+          actionUrl: '/admin/employees',
+          data: { employeeId: user.id },
+          dedupeKey: `employee-approval:${user.id}`,
+        }, { session });
+      }
+    }));
+    const { password_hash: _passwordHash, ...safeUser } = user;
+    res.status(201).json({ user: publicUser(safeUser), status: user.status });
+  });
+
   const authenticate = async (req, res, next) => {
     const token = readToken(req);
     if (!token) return res.status(401).json({ message: 'Please sign in.' });
@@ -171,6 +262,10 @@ export async function createApp({
     });
     const user = session && await db.collection('users').findOne({ id: session.user_id });
     if (!user) return res.status(401).json({ message: 'Your session has expired. Please sign in again.' });
+    if (user.status && user.status !== 'active') {
+      await db.collection('auth_sessions').deleteOne({ id: session.id });
+      return res.status(403).json({ message: 'This account is not active.' });
+    }
     req.user = publicUser(user);
     req.authSession = session;
     next();
@@ -181,6 +276,455 @@ export async function createApp({
     await db.collection('auth_sessions').deleteOne({ id: req.authSession.id });
     res.clearCookie(COOKIE_NAME, { ...cookieOptions(), maxAge: undefined });
     res.status(204).end();
+  });
+
+  const requireAdmin = (req, res, next) => {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Administrator access is required.' });
+    next();
+  };
+  const requireEmployee = (req, res, next) => {
+    if (!['employee', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Employee access is required.' });
+    }
+    next();
+  };
+
+  app.get('/api/notifications', async (req, res) => {
+    const { page, limit, state, type } = notificationListSchema.parse(req.query);
+    const filter = { recipient_id: req.user.id, archived_at: null };
+    if (state === 'unread') filter.read_at = null;
+    if (state === 'read') filter.read_at = { $ne: null };
+    if (type) filter.type = type;
+    const notifications = db.collection('notifications');
+    const [items, total] = await Promise.all([
+      notifications.find(filter, { projection }).sort({ created_at: -1 })
+        .skip((page - 1) * limit).limit(limit).toArray(),
+      notifications.countDocuments(filter),
+    ]);
+    res.json({
+      items: items.map(publicNotification), page, limit, total, totalPages: Math.ceil(total / limit),
+    });
+  });
+
+  app.get('/api/notifications/unread-count', async (req, res) => {
+    const count = await db.collection('notifications').countDocuments({
+      recipient_id: req.user.id, archived_at: null, read_at: null,
+    });
+    res.json({ count });
+  });
+
+  app.post('/api/notifications/socket-ticket', async (req, res) => {
+    z.object({}).strict().parse(req.body ?? {});
+    if (!notificationRealtimeReady()) return res.json({ mode: 'polling' });
+    if (!consumeRateLimit(`socket-ticket:${req.authSession.id}`, 20, 60_000)) {
+      return res.status(429).json({ message: 'Too many live-connection attempts. Try again in one minute.' });
+    }
+    const ticket = newToken();
+    const expiresAt = new Date(Date.now() + 30_000);
+    await db.collection('socket_tickets').insertOne({
+      id: randomUUID(),
+      ticket_hash: tokenHash(ticket),
+      user_id: req.user.id,
+      auth_session_id: req.authSession.id,
+      expires_at: expiresAt,
+    });
+    res.json({
+      mode: 'socket', ticket, expiresInMs: 30_000,
+      ...(process.env.SOCKET_SERVER_URL ? { socketUrl: process.env.SOCKET_SERVER_URL } : {}),
+    });
+  });
+
+  app.post('/api/notifications/read-all', async (req, res) => {
+    z.object({}).strict().parse(req.body ?? {});
+    const now = new Date().toISOString();
+    const result = await db.collection('notifications').updateMany({
+      recipient_id: req.user.id, archived_at: null, read_at: null,
+    }, { $set: { read_at: now, updated_at: now } });
+    res.json({ updated: result.modifiedCount });
+  });
+
+  app.patch('/api/notifications/:id/action', async (req, res) => {
+    const { id } = req.params;
+    idSchema.parse(id);
+    const action = notificationActionSchema.parse(req.body?.action);
+    const now = new Date().toISOString();
+    const fields = action === 'read' ? { read_at: now }
+      : action === 'unread' ? { read_at: null }
+      : action === 'archive' ? { archived_at: now }
+      : { archived_at: null };
+    const notification = await db.collection('notifications').findOneAndUpdate(
+      { id, recipient_id: req.user.id },
+      { $set: { ...fields, updated_at: now } },
+      { returnDocument: 'after', projection },
+    );
+    if (!notification) throw notFound();
+    res.json(publicNotification(notification));
+  });
+
+  app.get('/api/employee/requests', requireEmployee, async (req, res) => {
+    const requests = await db.collection('operational_requests').find(
+      { employee_id: req.user.id },
+    ).sort({ created_at: -1 }).limit(50).toArray();
+    res.json({ items: requests.map(publicOperationalRequest) });
+  });
+
+  app.post('/api/employee/requests', requireEmployee, async (req, res) => {
+    const input = operationalRequestSchema.parse(req.body);
+    const existing = await db.collection('operational_requests').findOne({
+      employee_id: req.user.id, idempotency_key: input.idempotencyKey,
+    });
+    if (existing) return res.json(publicOperationalRequest(existing));
+    if (!consumeRateLimit(`employee-request:${req.user.id}`, 5, 15 * 60_000)) {
+      return res.status(429).json({ message: 'Too many requests. Try again in 15 minutes.' });
+    }
+
+    const now = new Date().toISOString();
+    const request = {
+      id: randomUUID(),
+      employee_id: req.user.id,
+      type: input.type,
+      title: input.title,
+      message: input.message,
+      status: 'open',
+      admin_id: null,
+      admin_response: null,
+      idempotency_key: input.idempotencyKey,
+      created_at: now,
+      updated_at: now,
+    };
+    try {
+      await client.withSession(session => session.withTransaction(async () => {
+        await db.collection('operational_requests').insertOne(request, { session });
+        await notifyAdmins(db, {
+          type: 'operational_request',
+          title: 'Nouvelle demande opérationnelle',
+          message: `${req.user.name} : ${request.title}`,
+          priority: 'normal',
+          actionUrl: '/admin/requests',
+          data: { requestId: request.id },
+          dedupeKey: `operational-request:${request.id}`,
+        }, { session });
+      }));
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      const repeated = await db.collection('operational_requests').findOne({
+        employee_id: req.user.id, idempotency_key: input.idempotencyKey,
+      });
+      if (repeated) return res.json(publicOperationalRequest(repeated));
+      throw error;
+    }
+    res.status(201).json(publicOperationalRequest(request));
+  });
+
+  app.get('/api/admin/requests', requireAdmin, async (req, res) => {
+    const { page, limit, status } = requestListSchema.parse(req.query);
+    const filter = status ? { status } : {};
+    const requests = db.collection('operational_requests');
+    const [items, total] = await Promise.all([
+      requests.find(filter).sort({ created_at: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      requests.countDocuments(filter),
+    ]);
+    const employees = await db.collection('users').find({
+      id: { $in: [...new Set(items.map(item => item.employee_id))] },
+    }, { projection: { ...projection, password_hash: 0 } }).toArray();
+    const byId = new Map(employees.map(employee => [employee.id, publicUser(employee)]));
+    res.json({
+      items: items.map(item => ({
+        ...publicOperationalRequest(item), employee: byId.get(item.employee_id) || null,
+      })),
+      page, limit, total, totalPages: Math.ceil(total / limit),
+    });
+  });
+
+  app.patch('/api/admin/requests/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    idSchema.parse(id);
+    const input = requestUpdateSchema.parse(req.body);
+    const now = new Date().toISOString();
+    const updated = await client.withSession(session => session.withTransaction(async () => {
+      const existing = await db.collection('operational_requests').findOne({ id }, { session });
+      if (!existing) throw notFound();
+      const shouldNotify = existing.status !== input.status || existing.admin_response !== input.response;
+      const result = await db.collection('operational_requests').findOneAndUpdate(
+        { id },
+        { $set: {
+          status: input.status, admin_response: input.response,
+          admin_id: req.user.id, updated_at: now,
+        } },
+        { session, returnDocument: 'after', projection },
+      );
+      if (shouldNotify) {
+        await createNotification(db, {
+          recipientId: existing.employee_id,
+          senderId: req.user.id,
+          type: 'request_update',
+          title: 'Mise à jour de votre demande',
+          message: input.response,
+          priority: input.status === 'rejected' ? 'high' : 'normal',
+          actionUrl: '/notifications',
+          data: { requestId: id, status: input.status },
+          dedupeKey: `request-update:${id}:${now}`,
+        }, { session });
+      }
+      return result;
+    }));
+    if (!updated) throw notFound();
+    res.json(publicOperationalRequest(updated));
+  });
+
+  app.post('/api/admin/notifications', requireAdmin, async (req, res) => {
+    const input = adminNotificationSchema.parse(req.body);
+    const recipients = input.recipientId
+      ? [await db.collection('users').findOne({ id: input.recipientId })]
+      : await db.collection('users').find({
+        role: { $in: ['employee', 'staff'] }, status: { $in: ['active', null] },
+      }).toArray();
+    if (input.recipientId && (!recipients[0] ||
+        !['employee', 'staff'].includes(recipients[0].role) ||
+        (recipients[0].status && recipients[0].status !== 'active'))) {
+      throw badRequest('Choose an active employee account.');
+    }
+    if (!recipients.length) throw badRequest('There are no active employees to notify.');
+    if (!consumeRateLimit(`admin-notifications:${req.user.id}`, 10, 60 * 60_000)) {
+      return res.status(429).json({ message: 'Too many announcements. Try again in one hour.' });
+    }
+    const records = await client.withSession(session => session.withTransaction(async () => {
+      const created = [];
+      for (const recipient of recipients) {
+        created.push(await createNotification(db, {
+          recipientId: recipient.id,
+          senderId: req.user.id,
+          type: 'admin_announcement',
+          title: input.title,
+          message: input.message,
+          priority: input.priority,
+          actionUrl: input.actionUrl,
+          dedupeKey: `admin-announcement:${input.idempotencyKey}:${recipient.id}`,
+        }, { session }));
+      }
+      return created;
+    }));
+    res.status(201).json({ sent: records.length });
+  });
+
+  app.get('/api/employee/work-sessions', requireEmployee, async (req, res) => {
+    const [active, history] = await Promise.all([
+      db.collection('work_sessions').findOne({ employee_id: req.user.id, status: 'active' }),
+      db.collection('work_sessions').find({ employee_id: req.user.id }).sort({ start_time: -1 }).limit(30).toArray(),
+    ]);
+    res.json({ active, history });
+  });
+
+  app.post('/api/employee/work-sessions', requireEmployee, async (req, res) => {
+    const { requestId } = startShiftSchema.parse(req.body);
+    const previousRequest = await db.collection('work_sessions').findOne({
+      employee_id: req.user.id, start_request_ids: requestId,
+    });
+    if (previousRequest) return res.json(previousRequest);
+    const active = await db.collection('work_sessions').findOne({
+      employee_id: req.user.id, status: 'active',
+    });
+    if (active) {
+      const associated = await db.collection('work_sessions').findOneAndUpdate(
+        { id: active.id },
+        { $push: { start_request_ids: { $each: [requestId], $slice: -RECENT_START_REQUESTS } } },
+        { returnDocument: 'after', projection },
+      );
+      return res.json(associated || active);
+    }
+    const startTime = new Date();
+    const workSession = {
+      id: randomUUID(),
+      employee_id: req.user.id,
+      start_request_ids: [requestId],
+      start_time: startTime,
+      end_time: null,
+      duration_minutes: null,
+      status: 'active',
+      created_at: startTime,
+      updated_at: startTime,
+    };
+    try {
+      await db.collection('work_sessions').insertOne(workSession);
+    } catch (error) {
+      if (error.code !== 11000) throw error;
+      const repeatedRequest = await db.collection('work_sessions').findOne({
+        employee_id: req.user.id, start_request_ids: requestId,
+      });
+      if (repeatedRequest) return res.json(repeatedRequest);
+      const concurrentActive = await db.collection('work_sessions').findOne({
+        employee_id: req.user.id, status: 'active',
+      });
+      if (!concurrentActive) throw error;
+      const associated = await db.collection('work_sessions').findOneAndUpdate(
+        { id: concurrentActive.id },
+        { $push: { start_request_ids: { $each: [requestId], $slice: -RECENT_START_REQUESTS } } },
+        { returnDocument: 'after', projection },
+      );
+      return res.json(associated || concurrentActive);
+    }
+    res.status(201).json(workSession);
+  });
+
+  app.post('/api/employee/work-sessions/:id/end', requireEmployee, async (req, res) => {
+    z.object({}).strict().parse(req.body);
+    const { id } = req.params;
+    idSchema.parse(id);
+    const current = await db.collection('work_sessions').findOne({
+      id, employee_id: req.user.id,
+    });
+    if (!current) throw notFound();
+    if (current.status === 'completed') return res.json(current);
+    const endTime = new Date();
+    const durationMinutes = Math.max(0, Math.round((endTime.getTime() - current.start_time.getTime()) / 60000));
+    const completed = await db.collection('work_sessions').findOneAndUpdate(
+      { id, employee_id: req.user.id, status: 'active' },
+      { $set: {
+        end_time: endTime, duration_minutes: durationMinutes, status: 'completed', updated_at: endTime,
+      } },
+      { returnDocument: 'after', projection },
+    );
+    if (!completed) {
+      const retryResult = await db.collection('work_sessions').findOne({ id, employee_id: req.user.id });
+      if (retryResult?.status === 'completed') return res.json(retryResult);
+      throw notFound();
+    }
+    res.json(completed);
+  });
+
+  app.get('/api/admin/employees', requireAdmin, async (req, res) => {
+    const { page, limit, status, search } = employeeListSchema.parse(req.query);
+    const filter = { role: { $in: ['employee', 'staff'] } };
+    if (status) filter.status = status;
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      filter.$or = [
+        { full_name: { $regex: escaped, $options: 'i' } },
+        { email: { $regex: escaped, $options: 'i' } },
+      ];
+    }
+    const users = db.collection('users');
+    const [items, total] = await Promise.all([
+      users.find(filter, { projection: { ...projection, password_hash: 0 } })
+        .sort({ created_at: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      users.countDocuments(filter),
+    ]);
+    res.json({ items, page, limit, total, totalPages: Math.ceil(total / limit) });
+  });
+
+  app.patch('/api/admin/employees/:id/status', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    idSchema.parse(id);
+    const input = employeeStatusSchema.parse(req.body);
+    const now = new Date();
+    const result = await client.withSession(session => session.withTransaction(async () => {
+      const existing = await db.collection('users').findOne({
+        id, role: { $in: ['employee', 'staff'] },
+      }, { session });
+      if (!existing) throw notFound();
+      const statusChanged = (existing.status || 'active') !== input.status;
+      const updated = await db.collection('users').findOneAndUpdate(
+        { id, role: { $in: ['employee', 'staff'] } },
+        { $set: { status: input.status, updated_at: now.toISOString() } },
+        { session, returnDocument: 'after', projection: { ...projection, password_hash: 0 } },
+      );
+      await db.collection('auth_sessions').deleteMany({ user_id: id }, { session });
+      await db.collection('admin_audit_logs').insertOne({
+        id: randomUUID(), actor_id: req.user.id, action: 'employee.status_changed',
+        target_type: 'user', target_id: id, reason: input.reason,
+        before: { status: existing.status || 'active' }, after: { status: input.status },
+        created_at: now,
+      }, { session });
+      if (statusChanged) {
+        const statusMessages = {
+          active: 'Votre compte employé est maintenant actif.',
+          pending: 'Votre compte est en attente de validation.',
+          rejected: 'Votre demande d’accès a été refusée.',
+          disabled: 'Votre compte employé a été désactivé.',
+        };
+        await createNotification(db, {
+          recipientId: id,
+          senderId: req.user.id,
+          type: 'account_status',
+          title: 'État du compte mis à jour',
+          message: statusMessages[input.status],
+          priority: input.status === 'rejected' || input.status === 'disabled' ? 'high' : 'normal',
+          data: { status: input.status },
+          dedupeKey: `employee-status:${id}:${now.toISOString()}`,
+        }, { session });
+      }
+      return updated;
+    }));
+    res.json(result);
+  });
+
+  app.get('/api/admin/work-sessions', requireAdmin, async (req, res) => {
+    const { page, limit, employeeId, status, start, end } = workSessionListSchema.parse(req.query);
+    if (start && end && start > end) throw badRequest('End date must be on or after the start date.');
+    const filter = {};
+    if (employeeId) filter.employee_id = employeeId;
+    if (status) filter.status = status;
+    if (start || end) {
+      filter.start_time = {
+        ...(start ? { $gte: tunisMidnight(start) } : {}),
+        ...(end ? { $lt: new Date(tunisMidnight(end).getTime() + 86400000) } : {}),
+      };
+    }
+    const shifts = db.collection('work_sessions');
+    const [items, total] = await Promise.all([
+      shifts.find(filter).sort({ start_time: -1 }).skip((page - 1) * limit).limit(limit).toArray(),
+      shifts.countDocuments(filter),
+    ]);
+    const employees = await db.collection('users').find({
+      id: { $in: [...new Set(items.map(item => item.employee_id))] },
+    }, { projection: { ...projection, password_hash: 0 } }).toArray();
+    const byId = new Map(employees.map(employee => [employee.id, employee]));
+    res.json({
+      items: items.map(item => ({ ...item, employee: byId.get(item.employee_id) || null })),
+      page, limit, total, totalPages: Math.ceil(total / limit),
+    });
+  });
+
+  app.post('/api/admin/work-sessions/:id/end', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    idSchema.parse(id);
+    const { reason } = shiftCloseSchema.parse(req.body);
+    const now = new Date();
+    const result = await client.withSession(session => session.withTransaction(async () => {
+      const existing = await db.collection('work_sessions').findOne({ id, status: 'active' }, { session });
+      if (!existing) throw notFound();
+      const updated = await db.collection('work_sessions').findOneAndUpdate(
+        { id, status: 'active' },
+        { $set: {
+          end_time: now,
+          duration_minutes: Math.max(0, Math.round((now.getTime() - existing.start_time.getTime()) / 60000)),
+          status: 'completed',
+          closed_by: req.user.id,
+          close_reason: reason,
+          updated_at: now,
+        } },
+        { session, returnDocument: 'after', projection },
+      );
+      await db.collection('admin_audit_logs').insertOne({
+        id: randomUUID(), actor_id: req.user.id, action: 'work_session.admin_closed',
+        target_type: 'work_session', target_id: id, reason,
+        before: { status: 'active' }, after: { status: 'completed', end_time: now },
+        created_at: now,
+      }, { session });
+      await createNotification(db, {
+        recipientId: existing.employee_id,
+        senderId: req.user.id,
+        type: 'shift_admin_closed',
+        title: 'Votre service a été clôturé',
+        message: `Un administrateur a clôturé votre service. Motif : ${reason}`,
+        priority: 'high',
+        actionUrl: '/notifications',
+        data: { workSessionId: id },
+        dedupeKey: `shift-admin-closed:${id}`,
+      }, { session });
+      return updated;
+    }));
+    res.json(result);
   });
 
   app.get('/api/realtime/config', (_req, res) => res.json(
@@ -231,6 +775,9 @@ export async function createApp({
   app.get('/api/:table', async (req, res) => {
     const { table } = req.params;
     if (!Object.hasOwn(schemas, table)) throw notFound();
+    if (['settings', 'daily_closures'].includes(table) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'This resource is available for administrators only.' });
+    }
     const query = querySchema.parse(req.query);
     const filter = {};
     if (query.status) filter.status = query.status;
@@ -266,9 +813,12 @@ export async function createApp({
     res.json(await joinRows(db, table, rows));
   });
 
-  app.use('/api', (req, res, next) => {
+  app.use('/api/:table', (req, res, next) => {
     if (!['GET', 'HEAD'].includes(req.method) && req.user.role === 'demo') {
       return res.status(403).json({ message: 'Demo accounts are read-only.' });
+    }
+    if (['settings', 'daily_closures'].includes(req.params.table) && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'This operation is available for administrators only.' });
     }
     next();
   });

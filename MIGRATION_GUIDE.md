@@ -21,6 +21,12 @@ The old Supabase project is untouched.
 7. Run `npm run verify-schema`, `npm test` and `npm run build`.
 8. Start both servers using `npm run dev`; sign in using the provisioned account.
 
+New public registrations create employee accounts only. To require admin
+approval before employee login, set `EMPLOYEE_APPROVAL_REQUIRED=true` in the
+server environment. `npm run setup-db` creates the employee work-session and
+admin audit collections and indexes idempotently; it preserves existing MongoDB
+users and business records. Existing `staff` accounts remain usable.
+
 The former login defaults can be used only if you explicitly choose them when
 provisioning. Shared beta testing can prefill a provisioned account through
 `VITE_BETA_LOGIN_EMAIL` and `VITE_BETA_LOGIN_PASSWORD` in local `.env`.

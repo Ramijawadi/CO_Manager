@@ -13,7 +13,7 @@ test('passwords use salted hashes, reject wrong passwords and never appear in pu
   assert.equal(await verifyPassword('test-password-2026', first), true);
   assert.equal(await verifyPassword('wrong-password', first), false);
   assert.deepEqual(publicUser({ id, email: 'admin@example.com', role: 'admin', password_hash: first }), {
-    id, email: 'admin@example.com', role: 'admin',
+    id, email: 'admin@example.com', role: 'admin', name: 'admin@example.com',
   });
   await assert.rejects(verifyPassword('test', 'malformed'), /Invalid stored password/);
 });

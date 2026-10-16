@@ -22,7 +22,12 @@ export async function verifyPassword(password, encoded) {
 
 export const tokenHash = token => createHash('sha256').update(token).digest('hex');
 export const newToken = () => randomBytes(32).toString('hex');
-export const publicUser = user => ({ id: user.id, email: user.email, role: user.role });
+export const publicUser = user => ({
+  id: user.id,
+  email: user.email,
+  role: user.role,
+  name: user.full_name || user.email,
+});
 
 export function readToken(req) {
   const token = (req.headers.cookie || '').split(';')

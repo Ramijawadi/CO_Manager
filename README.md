@@ -17,6 +17,10 @@ reports using React, TypeScript, Vite and MongoDB.
   error instead of pretending to connect. On Vercel, authenticated app views
   poll every 15 seconds instead of using permanent connections, with a distinct
   polling indicator.
+- Notifications: recipient-scoped MongoDB records are the source of truth.
+  Authenticated REST endpoints manage history and read state; Socket.IO delivers
+  persisted changes to each recipient's private room on persistent Node hosting.
+  Vercel uses REST polling unless a separate persistent Socket.IO host is configured.
 - Exports: PDF through jsPDF and Excel through XLSX.
 
 MongoDB credentials are used **only by the backend**, never by the browser.
@@ -61,6 +65,12 @@ npm run dev
 The admin command prompts for an email and a password of at least ten characters.
 Alternatively, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` privately in your local
 process environment. The command refuses to overwrite existing accounts.
+Administrators are provisioned only through this protected command; public
+registration cannot assign the admin role. Employees register from the shared
+login screen. Registration creates active accounts by default; set the
+server-only environment variable `EMPLOYEE_APPROVAL_REQUIRED=true` to create
+new accounts as pending until an administrator approves them. Set optional
+`ADMIN_NAME` when provisioning to use a display name instead of the admin email.
 For shared beta testing, the login screen can prefill `VITE_BETA_LOGIN_EMAIL`
 and `VITE_BETA_LOGIN_PASSWORD` from local `.env`. When unset, the example
 credentials are shown only as placeholders and are not submitted. Prefilled
@@ -69,8 +79,54 @@ permissions. Remove both variables and rebuild before a private or production
 deployment. Database credentials must still remain server-only.
 
 Development starts the API on port 3001 and Vite together. Vite proxies `/api`
-to the backend, including cookies and live events. If changing the API port,
-also change the development proxy target in `vite.config.ts`.
+to the backend, including cookies and live events, and proxies `/socket.io` for
+notification delivery. If changing the API port, also change the development
+proxy targets in `vite.config.ts`.
+
+### Notifications and real-time deployment
+
+Run `npm run setup-db` after updating to create the validated `notifications`,
+`operational_requests`, and `socket_tickets` collections and their recipient,
+unread, idempotency, and ticket-expiry indexes.
+
+The persistent Node server (`npm start`) attaches Socket.IO to the existing
+Express HTTP server and watches MongoDB notification changes. It emits only
+sanitized notification fields to server-derived private `user:<id>` rooms.
+Socket authentication uses a one-use, 30-second ticket obtained over the
+existing authenticated REST session; long-lived session cookies are never put
+in a WebSocket URL. Set `APP_ORIGIN` (and, when needed, the comma-separated
+`SOCKET_ALLOWED_ORIGINS`) to the exact browser origins permitted to connect.
+The frontend polls notification history every 15 seconds while Socket.IO is
+unavailable and refreshes from MongoDB after reconnecting.
+
+Vercel's serverless handler does not host a persistent Socket.IO connection.
+Without a socket service, keep `SOCKET_SERVER_URL` unset and notifications
+continue through authenticated REST polling. To enable instant delivery on a
+Vercel deployment, deploy this project's persistent Node server on a host that
+supports WebSockets, point it at the same MongoDB database, and set:
+
+- On the persistent host: `MONGODB_URI`, `MONGODB_DB_NAME`,
+  `SOCKET_ALLOWED_ORIGINS=https://your-frontend.example.com`, and `APP_ORIGIN`
+  to the frontend origin.
+- In Vercel's API environment: `SOCKET_SERVER_URL=https://your-socket-host.example.com`.
+
+Redeploy the Vercel frontend/API and restart the persistent host after setting
+these variables. The authenticated Vercel ticket endpoint supplies the public
+socket URL to the browser; the persistent server consumes the one-use ticket
+and reads the same MongoDB change stream. For deployments with multiple
+Socket.IO instances, configure a shared Socket.IO adapter before scaling; the
+default in-memory rooms are intended for one persistent instance.
+
+Notification endpoints include `GET /api/notifications`,
+`GET /api/notifications/unread-count`, `PATCH /api/notifications/:id/action`,
+`POST /api/notifications/read-all`, `POST /api/notifications/socket-ticket`,
+`POST /api/admin/notifications`, `GET/POST /api/employee/requests`, and
+`GET/PATCH /api/admin/requests`. All history and mutation operations are scoped
+to the authenticated recipient; administrators do not gain access to employee
+notification histories. Automatic notifications cover pending employee
+approvals, account-status changes, admin-closed shifts, operational requests,
+and admin responses. Normal shift start/end events intentionally do not generate
+noise.
 
 ## Data model and behavior
 
@@ -157,6 +213,19 @@ Hebdomadaire (7 days, 25 DT), Mensuel (30 days, 80 DT).
 Setup is repeatable and does not replace existing passwords or business records.
 It reapplies missing default plans; do not use it as a routine server startup task.
 
+Employee accounts use the `employee` role; existing `staff` accounts remain
+valid and retain their established operational access. Existing accounts
+without a status are treated as active and are not rewritten. Employee shifts
+are stored separately in `work_sessions` (not the customer `sessions`
+collection), with a partial unique index preventing multiple active shifts
+per employee. Administrators can approve/disable employee accounts, inspect
+shift history, and close a shift only with a required reason recorded in
+`admin_audit_logs`. Shift-start retries use request IDs, and shift-end retries
+are idempotent. Run `npm run setup-db` after updating to safely create the
+new validated collections and indexes without deleting existing records.
+Reports and platform settings remain administrator-only; employee access to
+existing operational modules is preserved.
+
 Public document IDs remain UUID strings so subscription forms and existing
 frontend contracts continue to work. Referenced customers, catalog products,
 plans and subscriptions can be queried independently. Session product records
@@ -177,7 +246,7 @@ integer quantities, existing referenced records and date ranges. Multi-document
 writes use transactions. Customer/session/product deletion preserves the former
 cascade behavior; deleting a plan sets affected subscriptions' `plan_id` to null.
 Daily closures are upserted by date. Demo accounts are read-only on the server;
-admin and staff retain the existing business write permissions.
+admin and staff/employee accounts retain the existing business write permissions.
 
 **This migration starts fresh.** It does not copy Supabase records or passwords,
 and it does not delete or alter the old Supabase project. Legacy SQL files are

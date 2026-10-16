@@ -1,10 +1,11 @@
 import { ApiError, apiRequest, jsonBody } from './api';
 
-export type Role = 'admin' | 'staff' | 'demo';
+export type Role = 'admin' | 'employee' | 'staff' | 'demo';
 export interface AuthUser {
   id: string;
   email: string;
   role: Role;
+  name: string;
 }
 export interface AuthSession {
   user: AuthUser;
@@ -12,6 +13,14 @@ export interface AuthSession {
 
 export const signIn = (email: string, password: string): Promise<AuthSession> =>
   apiRequest('/auth/login', { method: 'POST', body: jsonBody({ email, password }) });
+
+export const registerEmployee = (
+  fullName: string, email: string, password: string, phone?: string,
+): Promise<{ user: AuthUser; status: 'active' | 'pending' }> =>
+  apiRequest('/auth/register', {
+    method: 'POST',
+    body: jsonBody({ fullName, email, password, ...(phone ? { phone } : {}) }),
+  });
 
 export async function getSession(): Promise<AuthSession | null> {
   try {

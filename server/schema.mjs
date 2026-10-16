@@ -4,7 +4,8 @@ import { initialRooms } from './room-management.mjs';
 export const collectionNames = [
   'customers', 'products', 'plans', 'sessions', 'session_products',
   'subscriptions', 'settings', 'daily_closures', 'users', 'auth_sessions', 'expenses', 'subscription_payments',
-  'rooms', 'room_rentals', 'utility_payments',
+  'rooms', 'room_rentals', 'utility_payments', 'work_sessions', 'admin_audit_logs',
+  'notifications', 'operational_requests', 'socket_tickets',
 ];
 
 const definitions = {
@@ -90,10 +91,61 @@ const definitions = {
       notes: { bsonType: 'string', maxLength: 10000 }, archived: { bsonType: 'bool' },
     },
   },
-  users: { required: ['email', 'password_hash', 'role'], properties: { email: { bsonType: 'string' },
-    password_hash: { bsonType: 'string' }, role: { enum: ['admin', 'staff', 'demo'] } } },
+  users: { required: ['email', 'password_hash', 'role'], properties: {
+    email: { bsonType: 'string' }, full_name: { bsonType: 'string', maxLength: 200 },
+    phone: { bsonType: 'string', maxLength: 40 }, password_hash: { bsonType: 'string' },
+    role: { enum: ['admin', 'employee', 'staff', 'demo'] },
+    status: { enum: ['pending', 'active', 'rejected', 'disabled'] },
+  } },
   auth_sessions: { required: ['token_hash', 'user_id', 'expires_at'], properties: {
     token_hash: { bsonType: 'string' }, user_id: { bsonType: 'string' }, expires_at: { bsonType: 'date' },
+  } },
+  work_sessions: { required: ['employee_id', 'start_time', 'status'], properties: {
+    employee_id: { bsonType: 'string' }, start_time: { bsonType: 'date' },
+    start_request_ids: { bsonType: 'array', items: { bsonType: 'string' } },
+    end_time: { bsonType: ['date', 'null'] }, duration_minutes: { bsonType: ['number', 'null'], minimum: 0 },
+    status: { enum: ['active', 'completed'] },
+  } },
+  admin_audit_logs: { required: ['actor_id', 'action', 'target_type', 'target_id', 'reason', 'created_at'],
+    properties: {
+      actor_id: { bsonType: 'string' }, action: { bsonType: 'string' },
+      target_type: { bsonType: 'string' }, target_id: { bsonType: 'string' },
+      reason: { bsonType: 'string', maxLength: 1000 }, created_at: { bsonType: 'date' },
+    } },
+  notifications: { required: [
+    'id', 'recipient_id', 'recipient_role', 'sender_id', 'type', 'title', 'message',
+    'priority', 'read_at', 'archived_at', 'created_at', 'updated_at',
+  ], properties: {
+    recipient_id: { bsonType: 'string' },
+    recipient_role: { enum: ['admin', 'employee', 'staff', 'demo'] },
+    sender_id: { bsonType: ['string', 'null'] },
+    type: { bsonType: 'string' }, title: { bsonType: 'string', maxLength: 120 },
+    message: { bsonType: 'string', maxLength: 2000 },
+    priority: { enum: ['low', 'normal', 'high', 'urgent'] },
+    action_url: { bsonType: ['string', 'null'] },
+    data: { bsonType: 'object' },
+    read_at: { bsonType: ['string', 'null'] },
+    archived_at: { bsonType: ['string', 'null'] },
+    created_at: { bsonType: 'string' }, updated_at: { bsonType: 'string' },
+    dedupe_key: { bsonType: 'string' },
+  } },
+  operational_requests: { required: [
+    'id', 'employee_id', 'type', 'title', 'message', 'status', 'idempotency_key',
+    'created_at', 'updated_at',
+  ], properties: {
+    employee_id: { bsonType: 'string' },
+    type: { enum: ['assistance', 'issue', 'shift_correction', 'operation_approval', 'other'] },
+    title: { bsonType: 'string', maxLength: 120 },
+    message: { bsonType: 'string', maxLength: 2000 },
+    status: { enum: ['open', 'in_progress', 'resolved', 'rejected'] },
+    admin_id: { bsonType: ['string', 'null'] },
+    admin_response: { bsonType: ['string', 'null'], maxLength: 2000 },
+    idempotency_key: { bsonType: 'string' },
+    created_at: { bsonType: 'string' }, updated_at: { bsonType: 'string' },
+  } },
+  socket_tickets: { required: ['ticket_hash', 'user_id', 'auth_session_id', 'expires_at'], properties: {
+    ticket_hash: { bsonType: 'string' }, user_id: { bsonType: 'string' },
+    auth_session_id: { bsonType: 'string' }, expires_at: { bsonType: 'date' },
   } },
 };
 
@@ -131,6 +183,34 @@ export async function initializeDatabase(db) {
     db.collection('sessions').createIndex({ status: 1, exit_time: -1 }),
     db.collection('auth_sessions').createIndex({ token_hash: 1 }, { unique: true }),
     db.collection('auth_sessions').createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+    db.collection('work_sessions').createIndex(
+      { employee_id: 1 }, { unique: true, name: 'one_active_work_session_per_employee',
+        partialFilterExpression: { status: 'active' } },
+    ),
+    db.collection('work_sessions').createIndex(
+      { employee_id: 1, start_request_ids: 1 },
+      { unique: true, name: 'work_session_start_request_key',
+        partialFilterExpression: { start_request_ids: { $exists: true } } },
+    ),
+    db.collection('work_sessions').createIndex({ employee_id: 1, start_time: -1 }),
+    db.collection('work_sessions').createIndex({ status: 1, start_time: -1 }),
+    db.collection('admin_audit_logs').createIndex({ target_type: 1, target_id: 1, created_at: -1 }),
+    db.collection('admin_audit_logs').createIndex({ actor_id: 1, created_at: -1 }),
+    db.collection('notifications').createIndex({ recipient_id: 1, created_at: -1 }),
+    db.collection('notifications').createIndex({ recipient_id: 1, read_at: 1, archived_at: 1, created_at: -1 }),
+    db.collection('notifications').createIndex(
+      { recipient_id: 1, dedupe_key: 1 },
+      { unique: true, name: 'notification_recipient_dedupe_key',
+        partialFilterExpression: { dedupe_key: { $type: 'string' } } },
+    ),
+    db.collection('operational_requests').createIndex({ status: 1, created_at: -1 }),
+    db.collection('operational_requests').createIndex({ employee_id: 1, created_at: -1 }),
+    db.collection('operational_requests').createIndex(
+      { employee_id: 1, idempotency_key: 1 },
+      { unique: true, name: 'operational_request_idempotency_key' },
+    ),
+    db.collection('socket_tickets').createIndex({ ticket_hash: 1 }, { unique: true }),
+    db.collection('socket_tickets').createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
     db.collection('rooms').createIndex({ room_number: 1 }, { unique: true, name: 'rooms_room_number_key' }),
     db.collection('rooms').createIndex({ archived: 1, room_number: 1 }),
     db.collection('room_rentals').createIndex({ room_id: 1, entry_date: 1, expected_departure_date: 1 }),

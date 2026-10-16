@@ -33,6 +33,8 @@ import {
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import { getNumberLocale } from '../i18n';
+import { useAuthStore } from '../store/authStore';
+import WorkSessionPanel from '../features/employee/WorkSessionPanel';
 
 dayjs.extend(relativeTime);
 dayjs.locale('fr');
@@ -113,6 +115,7 @@ const LiveIndicator: React.FC<{ status: 'connected' | 'polling' | 'disconnected'
 };
 
 const Dashboard: React.FC = () => {
+  const role = useAuthStore(state => state.role);
   const { t, i18n } = useTranslation();
   const numberLocale = getNumberLocale(i18n.resolvedLanguage);
   const realtimeStatus = useOutletContext<RealtimeStatus>();
@@ -213,6 +216,8 @@ const Dashboard: React.FC = () => {
           50% { opacity: 0.4; }
         }
       `}</style>
+
+      {(role === 'employee' || role === 'staff') && <WorkSessionPanel />}
 
       {/* Header with live indicator */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>

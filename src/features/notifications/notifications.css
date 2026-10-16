@@ -1,0 +1,240 @@
+.notification-bell {
+  color: #475569;
+  border-color: #e2e8f0;
+}
+
+.notification-bell:hover {
+  color: #4f46e5 !important;
+  border-color: #c7d2fe !important;
+  background: #eef2ff !important;
+}
+
+.notification-popover-overlay .ant-popover-inner {
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 50px rgb(15 23 42 / 14%);
+}
+
+.notification-popover {
+  width: min(390px, calc(100vw - 32px));
+}
+
+.notification-popover__header,
+.notification-popover__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.notification-popover__header {
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.notification-popover__caption {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+}
+
+.notification-popover__loading {
+  display: grid;
+  min-height: 140px;
+  place-items: center;
+}
+
+.notification-popover__list {
+  max-height: min(420px, 58vh);
+  overflow-y: auto;
+}
+
+.notification-row {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 11px;
+  padding: 13px 16px !important;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.notification-row:hover {
+  background: #f8fafc;
+}
+
+.notification-row--unread {
+  background: #f5f7ff;
+}
+
+.notification-row__icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  color: #4f46e5;
+  background: #e0e7ff;
+  border-radius: 10px;
+}
+
+.notification-row__body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.notification-row__message {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notification-row__time {
+  font-size: 11px;
+}
+
+.notification-popover__footer {
+  justify-content: center;
+  border-top: 1px solid #f1f5f9;
+}
+
+.notifications-page {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  padding: clamp(18px, 3vw, 36px);
+  overflow-y: auto;
+}
+
+.notifications-page__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+
+.notifications-page__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notification-center-list .ant-list-item {
+  align-items: flex-start;
+  padding: 16px;
+}
+
+.notification-type-filter {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 0 10px;
+}
+
+.notification-type-filter .ant-select {
+  width: min(260px, 100%);
+}
+
+.notification-center-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.notification-center-item__content {
+  min-width: 0;
+  flex: 1;
+}
+
+.notification-center-item__message {
+  display: block;
+  margin-top: 5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.notification-center-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+
+.notification-center-item__actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.admin-request-list .ant-list-item {
+  padding: 0;
+  border: 0;
+}
+
+.admin-request-card {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.employee-request-item {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.employee-request-item > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.employee-request-item__response {
+  margin-top: 4px;
+  color: #334155;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 600px) {
+  .notification-popover {
+    width: calc(100vw - 32px);
+  }
+
+  .notifications-page__heading {
+    flex-direction: column;
+  }
+
+  .notifications-page__actions {
+    width: 100%;
+  }
+
+  .notifications-page__actions .ant-btn {
+    flex: 1;
+  }
+
+  .notification-center-list .ant-list-item {
+    padding: 13px 10px;
+  }
+
+  .notification-type-filter .ant-select {
+    width: 100%;
+  }
+
+  .notification-center-item {
+    gap: 9px;
+  }
+
+  .employee-request-item {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

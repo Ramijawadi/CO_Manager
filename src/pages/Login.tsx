@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input, Button, Typography, message } from 'antd';
-import { signIn } from '../lib/auth';
+import { signIn, registerEmployee } from '../lib/auth';
 import { useAuthStore } from '../store/authStore';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, PhoneOutlined, UserOutlined } from '@ant-design/icons';
 import lottie from 'lottie-web';
 import animationData from '../assets/loading-circles.json';
 import { useTranslation } from 'react-i18next';
@@ -32,6 +32,9 @@ const LottieLoader: React.FC = () => {
 };
 
 const Login: React.FC = () => {
+  const [registering, setRegistering] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
   const [email, setEmail] = useState(import.meta.env.VITE_BETA_LOGIN_EMAIL ?? '');
   const [password, setPassword] = useState(import.meta.env.VITE_BETA_LOGIN_PASSWORD ?? '');
   const [loading, setLoading] = useState(false);
@@ -55,6 +58,23 @@ const Login: React.FC = () => {
       }, 2000);
     } catch (error) {
       message.error(error instanceof Error ? error.message : t('Connexion impossible'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const result = await registerEmployee(fullName, email, password, phone);
+      setRegistering(false);
+      setPassword('');
+      message.success(result.status === 'pending'
+        ? t('Votre compte attend l’approbation d’un administrateur')
+        : t('Compte créé. Vous pouvez vous connecter.'));
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : t('Inscription impossible'));
     } finally {
       setLoading(false);
     }
@@ -154,14 +174,46 @@ const Login: React.FC = () => {
           </div>
           <div style={{ marginBottom: 40 }}>
             <Title level={3} style={{ margin: '0 0 8px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
-              {t('Bienvenue')}
+              {registering ? t('Créer un compte employé') : t('Bienvenue')}
             </Title>
             <Text style={{ fontSize: 15, color: '#64748b' }}>
-              {t('Connectez-vous pour accéder à votre tableau de bord')}
+              {registering ? t('Inscrivez-vous pour demander un accès employé')
+                : t('Connectez-vous pour accéder à votre tableau de bord')}
             </Text>
           </div>
 
-          <form onSubmit={handleLogin}>
+          <form onSubmit={registering ? handleRegister : handleLogin}>
+            {registering && (
+              <>
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+                    {t('Nom Complet')}
+                  </label>
+                  <Input
+                    prefix={<UserOutlined style={{ color: '#94a3b8' }} />}
+                    value={fullName}
+                    onChange={event => setFullName(event.target.value)}
+                    required
+                    maxLength={200}
+                    size="large"
+                    style={{ borderRadius: 10, padding: '10px 14px' }}
+                  />
+                </div>
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
+                    {t('Numéro de téléphone')} ({t('optionnel')})
+                  </label>
+                  <Input
+                    prefix={<PhoneOutlined style={{ color: '#94a3b8' }} />}
+                    value={phone}
+                    onChange={event => setPhone(event.target.value)}
+                    maxLength={40}
+                    size="large"
+                    style={{ borderRadius: 10, padding: '10px 14px' }}
+                  />
+                </div>
+              </>
+            )}
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
                 {t('Email')}
@@ -207,9 +259,15 @@ const Login: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
               }}
             >
-              {t('Se connecter')}
+              {registering ? t('Créer mon compte') : t('Se connecter')}
             </Button>
           </form>
+
+          <div style={{ textAlign: 'center', marginTop: 18 }}>
+            <Button type="link" onClick={() => setRegistering(value => !value)}>
+              {registering ? t('J’ai déjà un compte') : t('Créer un compte employé')}
+            </Button>
+          </div>
 
           <div style={{ textAlign: 'center', marginTop: 32 }}>
             <Text style={{ fontSize: 12, color: '#94a3b8' }}>

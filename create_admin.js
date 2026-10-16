@@ -15,7 +15,9 @@ try {
   }
   await db.collection('users').insertOne({
     id: randomUUID(), email: user.email, role: user.role,
-    password_hash: await hashPassword(user.password), created_at: new Date().toISOString(),
+    full_name: process.env.ADMIN_NAME?.trim() || email.trim(), status: 'active',
+    password_hash: await hashPassword(user.password),
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
   });
   console.log('Admin account created. Password is stored only as a salted scrypt hash.');
 } catch (error) {

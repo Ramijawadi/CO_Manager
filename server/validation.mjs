@@ -112,9 +112,59 @@ export const schemas = {
 };
 
 export const loginSchema = z.object({ email: z.email().max(254), password: z.string().min(1).max(1024) }).strict();
+export const registrationSchema = z.object({
+  fullName: z.string().trim().min(1).max(200),
+  email: z.string().trim().pipe(z.email().max(254)).transform(value => value.toLowerCase()),
+  phone: z.string().trim().max(40).optional(),
+  password: z.string().min(10).max(1024),
+}).strict();
+export const employeeStatusSchema = z.object({
+  status: z.enum(['active', 'pending', 'rejected', 'disabled']),
+  reason: z.string().trim().min(1).max(1000),
+}).strict();
+export const shiftCloseSchema = z.object({
+  reason: z.string().trim().min(1).max(1000),
+}).strict();
+export const startShiftSchema = z.object({ requestId: uuid }).strict();
+export const notificationListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  state: z.enum(['all', 'unread', 'read']).default('all'),
+  type: z.enum([
+    'employee_approval', 'account_status', 'shift_admin_closed', 'operational_request',
+    'request_update', 'admin_announcement',
+  ]).optional(),
+}).strict();
+export const notificationActionSchema = z.enum(['read', 'unread', 'archive', 'restore']);
+export const adminNotificationSchema = z.object({
+  recipientId: uuid.optional(),
+  audience: z.enum(['all_employees']).optional(),
+  title: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(2000),
+  priority: z.enum(['low', 'normal', 'high', 'urgent']).default('normal'),
+  actionUrl: z.string().max(200).optional(),
+  idempotencyKey: uuid,
+}).strict().refine(value => Boolean(value.recipientId) !== Boolean(value.audience), {
+  message: 'Choose one recipient or one audience.',
+});
+export const operationalRequestSchema = z.object({
+  type: z.enum(['assistance', 'issue', 'shift_correction', 'operation_approval', 'other']),
+  title: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(2000),
+  idempotencyKey: uuid,
+}).strict();
+export const requestListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  status: z.enum(['open', 'in_progress', 'resolved', 'rejected']).optional(),
+}).strict();
+export const requestUpdateSchema = z.object({
+  status: z.enum(['open', 'in_progress', 'resolved', 'rejected']),
+  response: z.string().trim().min(1).max(2000),
+}).strict();
 export const userSchema = loginSchema.extend({
   password: z.string().min(10).max(1024),
-  role: z.enum(['admin', 'staff', 'demo']).default('admin'),
+  role: z.enum(['admin', 'employee', 'staff', 'demo']).default('employee'),
 });
 export const idSchema = uuid;
 

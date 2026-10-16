@@ -27,7 +27,12 @@ const LottieLoader: React.FC = () => {
   return <div ref={containerRef} style={{ width: 150, height: 150 }} />;
 };
 
-const ProtectedRoute: React.FC = () => {
+interface ProtectedRouteProps {
+  allowedRoles?: string[];
+  children?: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles, children }) => {
   const { t } = useTranslation();
   const { session, setSession, signOut } = useAuthStore();
   const [loading, setLoading] = useState(true);
@@ -80,7 +85,11 @@ const ProtectedRoute: React.FC = () => {
     return <Navigate to="/login" replace />;
   }
 
-  return <Outlet />;
+  if (allowedRoles && !allowedRoles.includes(session.user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children ?? <Outlet />;
 };
 
 export default ProtectedRoute;

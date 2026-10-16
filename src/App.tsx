@@ -21,6 +21,9 @@ import Subscriptions from './pages/Subscriptions';
 import Products from './pages/Products';
 import Expenses from './pages/Expenses';
 import Rooms from './pages/Rooms';
+import AdminEmployees from './pages/AdminEmployees';
+import Notifications from './pages/Notifications';
+import AdminRequests from './pages/AdminRequests';
 
 dayjs.locale('fr');
 
@@ -122,8 +125,19 @@ const App: React.FC = () => {
                 <Route path="products" element={<Products />} />
                 <Route path="expenses" element={<Expenses />} />
                 <Route path="rooms" element={<Rooms />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="settings" element={<Settings />} />
+                <Route path="reports" element={
+                  <ProtectedRoute allowedRoles={['admin']}><Reports /></ProtectedRoute>
+                } />
+                <Route path="settings" element={
+                  <ProtectedRoute allowedRoles={['admin']}><Settings /></ProtectedRoute>
+                } />
+                <Route path="admin/employees" element={
+                  <ProtectedRoute allowedRoles={['admin']}><AdminEmployees /></ProtectedRoute>
+                } />
+                <Route path="admin/requests" element={
+                  <ProtectedRoute allowedRoles={['admin']}><AdminRequests /></ProtectedRoute>
+                } />
+                <Route path="notifications" element={<Notifications />} />
               </Route>
             </Route>
           </Routes>

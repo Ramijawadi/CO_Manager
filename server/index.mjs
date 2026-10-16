@@ -1,16 +1,24 @@
 import { EventEmitter } from 'node:events';
+import { createServer } from 'node:http';
+import { Server as SocketServer } from 'socket.io';
 import { connectDatabase, closeDatabase } from './db.mjs';
 import { createApp } from './app.mjs';
 import { schemas } from './validation.mjs';
+import { attachNotificationSocket, socketAllowedOrigins } from './notification-socket.mjs';
 
 let server;
 let stream;
+let io;
+let closeNotificationSocket;
+let notificationRealtime = false;
 let shuttingDown = false;
 
 async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
-  server?.close();
+  await closeNotificationSocket?.();
+  if (io) await new Promise(resolve => io.close(resolve));
+  else if (server?.listening) await new Promise(resolve => server.close(resolve));
   server?.closeAllConnections();
   await stream?.close();
   await closeDatabase();
@@ -26,7 +34,9 @@ try {
   const events = new EventEmitter();
   events.setMaxListeners(0);
   let realtime = false;
-  stream = db.watch([{ $match: { 'ns.coll': { $in: Object.keys(schemas) } } }]);
+  stream = db.watch([{
+    $match: { 'ns.coll': { $in: [...Object.keys(schemas), 'work_sessions', 'users'] } },
+  }]);
   // Open the cursor before serving clients so live changes cannot be missed at startup.
   await stream.tryNext();
   realtime = true;
@@ -44,10 +54,26 @@ try {
     }
   };
   void consumeChanges();
-  const app = await createApp({ db, client, events, realtimeReady: () => realtime });
+  const app = await createApp({
+    db, client, events, realtimeReady: () => realtime,
+    notificationRealtimeReady: () => notificationRealtime,
+  });
   const port = Number(process.env.PORT || 3001);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be a valid TCP port.');
-  server = app.listen(port, () => console.log(`Co-Manager API listening on port ${port}.`));
+  server = createServer(app);
+  const allowedOrigins = socketAllowedOrigins();
+  io = new SocketServer(server, {
+    path: '/socket.io',
+    cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },
+    allowRequest: (req, callback) => {
+      const origin = req.headers.origin;
+      callback(null, !origin || allowedOrigins.includes(origin));
+    },
+  });
+  closeNotificationSocket = await attachNotificationSocket(
+    io, db, available => { notificationRealtime = available; },
+  );
+  server.listen(port, () => console.log(`Co-Manager API listening on port ${port}.`));
   server.on('close', () => app.emit('close'));
   server.on('error', async error => {
     console.error(`API startup failed (${error.code || error.name}).`);

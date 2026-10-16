@@ -15,6 +15,8 @@ import {
   DownOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  BellOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { signOut } from '../lib/auth';
@@ -23,12 +25,13 @@ import { useAuthStore } from '../store/authStore';
 import { useDatabaseRealtime } from '../hooks/useDatabaseRealtime';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
+import { NotificationBell } from '../features/notifications/NotificationBell';
 
 const { Header, Sider, Content } = AntLayout;
 
 const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const { role, signOut: clearAuth } = useAuthStore();
+  const { role, user, signOut: clearAuth } = useAuthStore();
   const { t } = useTranslation();
   const { status: realtimeStatus } = useDatabaseRealtime();
   const queryClient = useQueryClient();
@@ -86,19 +89,34 @@ const AppLayout: React.FC = () => {
       label: t('Gestion des chambres'),
     },
     {
-      key: '/settings',
-      icon: <SettingOutlined />,
-      label: t('Paramètres'),
+      key: '/notifications',
+      icon: <BellOutlined />,
+      label: t('Notifications'),
     },
   ];
 
   if (role === 'admin') {
     menuItems?.push(
       {
+        key: '/admin/employees',
+        icon: <UserOutlined />,
+        label: t('Gestion des employés'),
+      },
+      {
+        key: '/admin/requests',
+        icon: <InboxOutlined />,
+        label: t('Demandes des employés'),
+      },
+      {
         key: '/reports',
         icon: <BarChartOutlined />,
         label: t('Rapports'),
-      }
+      },
+      {
+        key: '/settings',
+        icon: <SettingOutlined />,
+        label: t('Paramètres'),
+      },
     );
   }
 
@@ -122,6 +140,9 @@ const AppLayout: React.FC = () => {
     '/rooms': t('Gestion des chambres'),
     '/reports': t('Rapports'),
     '/settings': t('Paramètres'),
+    '/admin/employees': t('Gestion des employés'),
+    '/admin/requests': t('Demandes des employés'),
+    '/notifications': t('Notifications'),
   };
 
   return (
@@ -287,6 +308,7 @@ const AppLayout: React.FC = () => {
           </div>
           <Space size={16}>
             <LanguageSwitcher />
+            <NotificationBell />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
               <div
                 style={{
@@ -317,7 +339,7 @@ const AppLayout: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
-                    {role === 'admin' ? t("Admin") : role === 'demo' ? t("Demo") : t("Staff")}
+                    {user?.name || (role === 'admin' ? t("Admin") : role === 'demo' ? t("Demo") : t("Employé"))}
                   </div>
                   <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.2 }}>
                     {role === 'admin' ? t("Administrateur") : role === 'demo' ? t("Lecture seule") : t("Employé")}
