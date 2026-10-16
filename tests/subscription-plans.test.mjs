@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
+import { createInstance } from 'i18next';
 
 const planId = '12345678-1234-1234-1234-123456789abc';
 const plan = { id: planId, name: 'Mensuel', duration_days: 30, price: 80, created_at: '' };
@@ -102,4 +103,36 @@ test('active subscriptions are constrained to both ends of the date range', asyn
   assert.equal(query.get('status'), 'active');
   assert.equal(query.get('customer_id'), input.customer_id);
   assert.equal(await loadSubscriptions(mockApi([])).getActiveSubscription(input.customer_id), null);
+});
+
+test('standard subscription names translate in Arabic without changing saved names', async () => {
+  let resources;
+  const setup = {
+    use() { return this; },
+    init(options) { resources = options.resources; },
+  };
+  loadApi('../src/i18n.ts', {
+    i18next: { __esModule: true, default: setup },
+    'i18next-browser-languagedetector': { default: {} },
+    'react-i18next': { initReactI18next: {} },
+  });
+  const i18n = createInstance();
+  await i18n.init({ resources, lng: 'ar', fallbackLng: 'fr' });
+  const { translatePlanName } = loadApi('../src/features/plans/labels.ts', {});
+  for (const [name, expected] of [
+    ['Mensuel', 'شهري'], ['mensuel', 'شهري'], [' MENSUEL ', 'شهري'],
+    ['Hebdomadaire', 'أسبوعي'], ['hebdomadaire', 'أسبوعي'],
+    ['Annuel', 'سنوي'], ['ans', 'سنة'], ['an', 'سنة'],
+    ['Trimestre', 'ثلاثة أشهر'], ['trimestriel', 'ربع سنوي'],
+    ['Semestriel', 'نصف سنوي'], ['Journalier', 'يومي'],
+    ['Bimensuel', 'مرتين في الشهر'], ['Bimestriel', 'كل شهرين'],
+  ]) {
+    assert.equal(translatePlanName(name, i18n.t.bind(i18n)), expected);
+    await i18n.changeLanguage('fr');
+    assert.equal(translatePlanName(name, i18n.t.bind(i18n)), name);
+    await i18n.changeLanguage('ar');
+  }
+  for (const name of ['Flex Premium', 'اشتراك خاص', 'constructor', '']) {
+    assert.equal(translatePlanName(name, i18n.t.bind(i18n)), name);
+  }
 });

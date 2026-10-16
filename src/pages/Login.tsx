@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import { MailOutlined, LockOutlined } from '@ant-design/icons';
 import lottie from 'lottie-web';
 import animationData from '../assets/loading-circles.json';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/LanguageSwitcher';
 
 const { Title, Text } = Typography;
 
@@ -37,6 +39,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const setSession = useAuthStore(state => state.setSession);
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,13 +48,13 @@ const Login: React.FC = () => {
       const session = await signIn(email, password);
       queryClient.clear();
       setSession(session);
-      message.success('Connexion réussie');
+      message.success(t('Connexion réussie'));
       setShowSuccessLoader(true);
       setTimeout(() => {
         navigate('/');
       }, 2000);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Connexion impossible');
+      message.error(error instanceof Error ? error.message : t('Connexion impossible'));
     } finally {
       setLoading(false);
     }
@@ -127,11 +130,9 @@ const Login: React.FC = () => {
             <circle cx="31" cy="22.5" r="2" fill="white" opacity="0.9"/>
           </svg>
           <h1 style={{ color: 'white', fontSize: 36, fontWeight: 800, margin: '0 0 12px', letterSpacing: '-0.03em' }}>
-            Co-Manager
-          </h1>
+            {t("Co-Manager")}{' '}</h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 16, margin: 0, maxWidth: 300, lineHeight: 1.6 }}>
-            Gérez votre espace de coworking avec facilité et elegance
-          </p>
+            {t("Gérez votre espace de coworking avec facilité et elegance")}{' '}</p>
         </div>
       </div>
 
@@ -148,23 +149,26 @@ const Login: React.FC = () => {
         }}
       >
         <div style={{ width: '100%', maxWidth: 360 }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+            <LanguageSwitcher />
+          </div>
           <div style={{ marginBottom: 40 }}>
             <Title level={3} style={{ margin: '0 0 8px', fontWeight: 700, color: '#0f172a', letterSpacing: '-0.02em' }}>
-              Bienvenue
+              {t('Bienvenue')}
             </Title>
             <Text style={{ fontSize: 15, color: '#64748b' }}>
-              Connectez-vous pour accéder à votre tableau de bord
+              {t('Connectez-vous pour accéder à votre tableau de bord')}
             </Text>
           </div>
 
           <form onSubmit={handleLogin}>
             <div style={{ marginBottom: 18 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
-                Email
+                {t('Email')}
               </label>
               <Input
                 type="email"
-                placeholder="comanager@gmail.com"
+                placeholder={t('comanager@gmail.com')}
                 prefix={<MailOutlined style={{ color: '#94a3b8' }} />}
                 onChange={(e) => setEmail(e.target.value)}
                 value={email}
@@ -175,10 +179,10 @@ const Login: React.FC = () => {
             </div>
             <div style={{ marginBottom: 28 }}>
               <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#374151', marginBottom: 6 }}>
-                Mot de passe
+                {t('Mot de passe')}
               </label>
               <Input.Password
-                placeholder="manager2026"
+                placeholder={t('Mot de passe')}
                 prefix={<LockOutlined style={{ color: '#94a3b8' }} />}
                 onChange={(e) => setPassword(e.target.value)}
                 value={password}
@@ -203,13 +207,13 @@ const Login: React.FC = () => {
                 boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
               }}
             >
-              Se connecter
+              {t('Se connecter')}
             </Button>
           </form>
 
           <div style={{ textAlign: 'center', marginTop: 32 }}>
             <Text style={{ fontSize: 12, color: '#94a3b8' }}>
-              Système de gestion Co-Manager v1.0
+              {t('Système de gestion Co-Manager v1.0')}
             </Text>
           </div>
         </div>

@@ -8,8 +8,10 @@ import type { Product, ProductInput } from './types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatProductPrice } from '../../lib/productMoney';
+import { useTranslation } from 'react-i18next';
 
 const ProductList: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
   const [searchText, setSearchText] = useState('');
@@ -25,7 +27,7 @@ const ProductList: React.FC = () => {
     mutationFn: createProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      message.success('Produit ajouté avec succès');
+      message.success(t("Produit ajouté avec succès"));
       setIsModalOpen(false);
     },
     onError: (error: Error) => message.error(error.message),
@@ -35,7 +37,7 @@ const ProductList: React.FC = () => {
     mutationFn: ({ id, data }: { id: string; data: ProductInput }) => updateProduct(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      message.success('Produit mis à jour avec succès');
+      message.success(t("Produit mis à jour avec succès"));
       setIsModalOpen(false);
     },
     onError: (error: Error) => message.error(error.message),
@@ -45,7 +47,7 @@ const ProductList: React.FC = () => {
     mutationFn: deleteProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products'] });
-      message.success('Produit supprimé');
+      message.success(t("Produit supprimé"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -77,12 +79,12 @@ const ProductList: React.FC = () => {
   };
 
   const columns = [
-    { title: 'Nom', dataIndex: 'name', key: 'name' },
-    { title: 'Description', dataIndex: 'description', key: 'description' },
-    { title: 'Prix', dataIndex: 'price', key: 'price', render: formatProductPrice },
-    { title: 'Stock', dataIndex: 'stock', key: 'stock' },
+    { title: t("Nom"), dataIndex: 'name', key: 'name' },
+    { title: t("Description"), dataIndex: 'description', key: 'description' },
+    { title: t("Prix"), dataIndex: 'price', key: 'price', render: (price: number) => formatProductPrice(price, i18n.resolvedLanguage) },
+    { title: t("Stock"), dataIndex: 'stock', key: 'stock' },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       render: (_: any, record: Product) => (
         <Space size="middle">
@@ -91,11 +93,11 @@ const ProductList: React.FC = () => {
             <AuthButton type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
-              title="Supprimer le produit"
-              description="Êtes-vous sûr de vouloir supprimer ce produit ?"
+              title={t("Supprimer le produit")}
+              description={t("Êtes-vous sûr de vouloir supprimer ce produit ?")}
               onConfirm={() => deleteMutation.mutate(record.id)}
-              okText="Oui"
-              cancelText="Non"
+              okText={t("Oui")}
+              cancelText={t("Non")}
             >
               <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
@@ -109,7 +111,7 @@ const ProductList: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingTop: 20 }}>
         <Input
-          placeholder="Rechercher des produits..."
+          placeholder={t("Rechercher des produits...")}
           prefix={<SearchOutlined />}
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
@@ -117,8 +119,7 @@ const ProductList: React.FC = () => {
           allowClear
         />
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Nouveau produit
-        </AuthButton>
+          {t("Nouveau produit")}{' '}</AuthButton>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -127,7 +128,9 @@ const ProductList: React.FC = () => {
           dataSource={filteredProducts}
           rowKey="id"
           loading={isLoading}
-          pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}` }}
+          pagination={{ defaultPageSize: 5, showTotal: total => total === 1
+            ? t('Total : 1 produit')
+            : t('Total : {{count}} produits', { count: total }) }}
           style={{ height: '100%' }}
 
         />

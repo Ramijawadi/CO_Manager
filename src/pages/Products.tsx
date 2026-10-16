@@ -1,16 +1,17 @@
 import React from 'react';
 import { Card, Typography } from 'antd';
 import ProductList from '../features/products/ProductList';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
 const Products: React.FC = () => {
+  const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: 16 }}>
       <div style={{ marginBottom: 16, flexShrink: 0 }}>
         <Text style={{ fontSize: 15, color: '#64748b' }}>
-          Gérez votre catalogue de produits
-        </Text>
+          {t("Gérez votre catalogue de produits")}{' '}</Text>
       </div>
       <Card
         bordered={false}

@@ -3,6 +3,7 @@ import { DatePicker, Form, Input, InputNumber, Modal, Select } from 'antd';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { Room, RoomRental, RoomRentalInput, UtilityPayment, UtilityPaymentInput, UtilityType } from './types';
+import { useTranslation } from 'react-i18next';
 
 const tunisToday = () => new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Africa/Tunis', year: 'numeric', month: '2-digit', day: '2-digit',
@@ -18,6 +19,7 @@ interface FormProps<T> {
 type RoomValues = Pick<Room, 'room_number' | 'name' | 'notes'>;
 
 export function RoomForm({ open, loading, onCancel, onSubmit, initial }: FormProps<RoomValues> & { initial?: Room }) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<RoomValues>();
   useEffect(() => {
     if (!open) return;
@@ -27,19 +29,19 @@ export function RoomForm({ open, loading, onCancel, onSubmit, initial }: FormPro
       : { notes: '' });
   }, [form, initial, open]);
   return (
-    <Modal title={initial ? 'Modifier la chambre' : 'Ajouter une chambre'} open={open}
-      onCancel={onCancel} onOk={() => form.submit()} okText="Enregistrer" cancelText="Annuler"
+    <Modal title={initial ? t("Modifier la chambre") : t("Ajouter une chambre")} open={open}
+      onCancel={onCancel} onOk={() => form.submit()} okText={t("Enregistrer")} cancelText={t("Annuler")}
       confirmLoading={loading} cancelButtonProps={{ disabled: loading }} closable={!loading}>
       <Form form={form} layout="vertical" disabled={loading} onFinish={values => onSubmit({
         ...values, room_number: values.room_number.trim(), name: values.name?.trim() || values.room_number.trim(),
         notes: values.notes?.trim() ?? '',
       })}>
-        <Form.Item name="room_number" label="Numéro de chambre" rules={[
-          { required: true, whitespace: true, message: 'Veuillez saisir un numéro de chambre.' },
-          { max: 40, message: 'Le numéro ne peut pas dépasser 40 caractères.' },
-        ]}><Input maxLength={40} placeholder="Chambre 01" /></Form.Item>
-        <Form.Item name="name" label="Nom personnalisé"><Input maxLength={200} placeholder="Facultatif" /></Form.Item>
-        <Form.Item name="notes" label="Notes"><Input.TextArea rows={3} maxLength={10000} /></Form.Item>
+        <Form.Item name="room_number" label={t("Numéro de chambre")} rules={[
+          { required: true, whitespace: true, message: t("Veuillez saisir un numéro de chambre.") },
+          { max: 40, message: t("Le numéro ne peut pas dépasser 40 caractères.") },
+        ]}><Input maxLength={40} placeholder={t("Chambre 01")} /></Form.Item>
+        <Form.Item name="name" label={t("Nom personnalisé")}><Input maxLength={200} placeholder={t("Facultatif")} /></Form.Item>
+        <Form.Item name="notes" label={t("Notes")}><Input.TextArea rows={3} maxLength={10000} /></Form.Item>
       </Form>
     </Modal>
   );
@@ -55,6 +57,7 @@ export function RentalForm({ open, loading, onCancel, onSubmit, room, initial }:
   room: Room;
   initial?: RoomRental;
 }) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<RentalValues>();
   useEffect(() => {
     if (!open) return;
@@ -79,29 +82,29 @@ export function RentalForm({ open, loading, onCancel, onSubmit, room, initial }:
     notes: values.notes?.trim() ?? '',
   });
   return (
-    <Modal title={initial ? 'Modifier la location' : `Louer ${room.name}`} open={open}
-      onCancel={onCancel} onOk={() => form.submit()} okText="Enregistrer" cancelText="Annuler"
+    <Modal title={initial ? t("Modifier la location") : `Louer ${room.name}`} open={open}
+      onCancel={onCancel} onOk={() => form.submit()} okText={t("Enregistrer")} cancelText={t("Annuler")}
       confirmLoading={loading} cancelButtonProps={{ disabled: loading }} closable={!loading}>
       <Form form={form} layout="vertical" disabled={loading} onFinish={finish}>
         <Form.Item name="room_id" hidden><Input /></Form.Item>
-        <Form.Item name="tenant_name" label="Nom du locataire" rules={[
-          { required: true, whitespace: true, message: 'Veuillez saisir le nom du locataire.' },
-          { max: 200, message: 'Le nom ne peut pas dépasser 200 caractères.' },
+        <Form.Item name="tenant_name" label={t("Nom du locataire")} rules={[
+          { required: true, whitespace: true, message: t("Veuillez saisir le nom du locataire.") },
+          { max: 200, message: t("Le nom ne peut pas dépasser 200 caractères.") },
         ]}><Input maxLength={200} /></Form.Item>
-        <Form.Item name="phone" label="Téléphone" rules={[
-          { max: 40, message: 'Le numéro ne peut pas dépasser 40 caractères.' },
-          { pattern: /^[+()\d\s.-]*$/, message: 'Saisissez un numéro de téléphone valide.' },
+        <Form.Item name="phone" label={t("Téléphone")} rules={[
+          { max: 40, message: t("Le numéro ne peut pas dépasser 40 caractères.") },
+          { pattern: /^[+()\d\s.-]*$/, message: t("Saisissez un numéro de téléphone valide.") },
         ]}><Input maxLength={40} /></Form.Item>
-        <Form.Item name="entry_date" label="Date d'entrée" rules={[{ required: true, message: 'Choisissez une date d’entrée.' }]}>
+        <Form.Item name="entry_date" label={t("Date d'entrée")} rules={[{ required: true, message: t("Choisissez une date d’entrée.") }]}>
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="expected_departure_date" label="Date de sortie prévue" rules={[{ required: true, message: 'Choisissez une date de sortie prévue.' }]}>
+        <Form.Item name="expected_departure_date" label={t("Date de sortie prévue")} rules={[{ required: true, message: t("Choisissez une date de sortie prévue.") }]}>
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        {initial && <Form.Item name="actual_departure_date" label="Date de sortie réelle">
+        {initial && <Form.Item name="actual_departure_date" label={t("Date de sortie réelle")}>
           <DatePicker format="DD/MM/YYYY" allowClear style={{ width: '100%' }} />
         </Form.Item>}
-        <Form.Item name="notes" label="Notes"><Input.TextArea rows={3} maxLength={10000} /></Form.Item>
+        <Form.Item name="notes" label={t("Notes")}><Input.TextArea rows={3} maxLength={10000} /></Form.Item>
       </Form>
     </Modal>
   );
@@ -117,6 +120,7 @@ export function UtilityPaymentForm({ open, loading, onCancel, onSubmit, rentalId
   utilityType?: UtilityType;
   initial?: UtilityPayment;
 }) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<UtilityValues>();
   useEffect(() => {
     if (!open) return;
@@ -137,34 +141,34 @@ export function UtilityPaymentForm({ open, loading, onCancel, onSubmit, rentalId
     notes: values.notes?.trim() ?? '',
   });
   return (
-    <Modal title={initial ? 'Modifier la facture' : 'Ajouter une facture'} open={open}
-      onCancel={onCancel} onOk={() => form.submit()} okText="Enregistrer" cancelText="Annuler"
+    <Modal title={initial ? t("Modifier la facture") : t("Ajouter une facture")} open={open}
+      onCancel={onCancel} onOk={() => form.submit()} okText={t("Enregistrer")} cancelText={t("Annuler")}
       confirmLoading={loading} cancelButtonProps={{ disabled: loading }} closable={!loading}>
       <Form form={form} layout="vertical" disabled={loading} onFinish={finish}>
         <Form.Item name="rental_id" hidden><Input /></Form.Item>
-        <Form.Item name="type" label="Facture" rules={[{ required: true }]}>
+        <Form.Item name="type" label={t("Facture")} rules={[{ required: true }]}>
           <Select disabled={Boolean(initial)} options={[
-            { label: 'Eau', value: 'water' }, { label: 'Électricité', value: 'electricity' },
+            { label: t("Eau"), value: 'water' }, { label: t("Électricité"), value: 'electricity' },
           ]} />
         </Form.Item>
-        <Form.Item name="billing_period" label="Période de facturation" rules={[{ required: true, message: 'Choisissez la période.' }]}>
+        <Form.Item name="billing_period" label={t("Période de facturation")} rules={[{ required: true, message: t("Choisissez la période.") }]}>
           <DatePicker picker="month" format="MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="status" label="Statut" rules={[{ required: true }]}>
-          <Select options={[{ label: 'Non payée', value: 'unpaid' }, { label: 'Payée', value: 'paid' }]} />
+        <Form.Item name="status" label={t("Statut")} rules={[{ required: true }]}>
+          <Select options={[{ label: t("Non payée"), value: 'unpaid' }, { label: t("Payée"), value: 'paid' }]} />
         </Form.Item>
         <Form.Item noStyle shouldUpdate={(previous, current) => previous.status !== current.status}>
           {({ getFieldValue }) => getFieldValue('status') === 'paid' ? (
-            <Form.Item name="payment_date" label="Date de paiement" rules={[{ required: true, message: 'Choisissez la date de paiement.' }]}>
+            <Form.Item name="payment_date" label={t("Date de paiement")} rules={[{ required: true, message: t("Choisissez la date de paiement.") }]}>
               <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
             </Form.Item>
           ) : null}
         </Form.Item>
-        <Form.Item name="amount" label="Montant (DT)" rules={[
-          { type: 'number', min: 0.001, max: 1_000_000_000, message: 'Le montant doit être positif.' },
+        <Form.Item name="amount" label={t("Montant (DT)")} rules={[
+          { type: 'number', min: 0.001, max: 1_000_000_000, message: t("Le montant doit être positif.") },
         ]}><InputNumber min={0.001} max={1_000_000_000} precision={3} step={0.001} style={{ width: '100%' }} /></Form.Item>
-        <Form.Item name="invoice_reference" label="Référence de facture"><Input maxLength={200} /></Form.Item>
-        <Form.Item name="notes" label="Notes"><Input.TextArea rows={2} maxLength={10000} /></Form.Item>
+        <Form.Item name="invoice_reference" label={t("Référence de facture")}><Input maxLength={200} /></Form.Item>
+        <Form.Item name="notes" label={t("Notes")}><Input.TextArea rows={2} maxLength={10000} /></Form.Item>
       </Form>
     </Modal>
   );

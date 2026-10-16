@@ -34,9 +34,108 @@ html {
   scrollbar-color: #cbd5e1 transparent;
 }
 
+html[lang='ar'],
+html[lang='ar'] body,
+html[lang='ar'] #root {
+  font-family: Tahoma, Arial, sans-serif;
+}
+
 ::selection {
   background: #4f46e5;
   color: white;
+}
+
+.language-switcher {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.language-switcher button {
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.language-switcher button:hover {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.language-switcher button[aria-pressed='true'] {
+  background: #4f46e5;
+  color: #fff;
+}
+
+.language-switcher button:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.dashboard-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: 14px;
+  margin-block-end: 18px;
+  flex: 0 0 auto;
+}
+
+.dashboard-metric-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-metric-heading .dashboard-metric-label {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: #475569;
+  letter-spacing: normal;
+}
+
+.dashboard-metric-value {
+  margin-block-start: 16px;
+}
+
+.dashboard-metric-value .ant-statistic-content {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: 'Inter', Tahoma, Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: #0f172a;
+}
+
+.dashboard-metric-value .ant-statistic-content-value {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.dashboard-metric-value .ant-statistic-content-suffix {
+  margin-inline: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
 }
 
 .ant-table-wrapper .ant-table {
@@ -252,11 +351,11 @@ html {
   color: #64748b !important;
   font-size: 13px !important;
   font-weight: 500 !important;
-  margin-right: 8px !important;
+  margin-inline-end: 8px !important;
 }
 
 .ant-pagination .ant-pagination-options {
-  margin-left: 8px !important;
+  margin-inline-start: 8px !important;
 }
 
 .ant-pagination .ant-pagination-options .ant-select-selector {
@@ -282,3 +381,83 @@ html {
   background: #fff !important;
 }
 
+.rooms-overview .ant-card-head-wrapper {
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-block: 16px;
+}
+
+.rooms-overview .ant-card-head-title {
+  flex: 1 1 180px;
+  white-space: normal;
+}
+
+.rooms-table-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block-end: 20px;
+}
+
+.rooms-table-search {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.rooms-table-filter {
+  flex: 0 1 240px;
+  min-width: 0;
+}
+
+.rooms-table .ant-table-thead > tr > th {
+  white-space: nowrap;
+  letter-spacing: normal;
+}
+
+.rooms-table .ant-table-tbody > tr > td {
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.rooms-table .ant-table-tbody > .ant-table-measure-row > td {
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.rooms-table .ant-table-tbody > tr:hover {
+  transform: none;
+}
+
+.rooms-table-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-height: 42px;
+}
+
+.rooms-table .ant-tag {
+  margin-inline: 0;
+  white-space: nowrap;
+}
+
+.rooms-table bdi[dir='ltr'],
+.rooms-table-actions {
+  white-space: nowrap;
+}
+
+.rooms-table .ant-pagination {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+@media (max-width: 575px) {
+  .rooms-overview .ant-card-body {
+    padding: 12px;
+  }
+
+  .rooms-table-filter {
+    flex-basis: 100%;
+  }
+}

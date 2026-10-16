@@ -204,6 +204,20 @@ An optional end-to-end test, `tests/mongodb-live.test.mjs`, runs only with
 `RUN_MONGODB_LIVE_TESTS=1`; it creates uniquely named temporary records and
 removes only those records in cleanup.
 
+## Localization
+
+The interface uses `i18next` with `react-i18next`. French remains the default;
+the selected French or Arabic language is saved in local storage. Add Arabic
+translations in `src/i18n.ts` and wrap new user-facing text in `t(...)`.
+Compact FR / AR buttons on the login screen and app header switch languages
+directly, with the current language highlighted.
+Standard subscription plan names are translated at display time using
+`src/features/plans/labels.ts` in subscriptions, payments, and settings.
+Stored names and IDs remain unchanged; custom names without a translation keep
+their original text. Add translations for custom names in `src/i18n.ts`.
+Arabic switches the document and Ant Design to right-to-left layout and updates
+the Ant Design and Day.js locales.
+
 ## Deployment
 
 ### Vercel (frontend and API together)

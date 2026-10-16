@@ -9,10 +9,13 @@ import { useNavigate } from 'react-router-dom';
 import { signOut } from '../lib/auth';
 import { useAuthStore } from '../store/authStore';
 import { AuthButton } from '../components/AuthButton';
+import { useTranslation } from 'react-i18next';
+import { translatePlanName } from '../features/plans/labels';
 
 const { Text, Title } = Typography;
 
 const Settings: React.FC = () => {
+  const { t } = useTranslation();
 
   const [form] = Form.useForm();
   const [addPlanForm] = Form.useForm();
@@ -64,7 +67,7 @@ const Settings: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] });
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      message.success('Paramètres et abonnements mis à jour avec succès');
+      message.success(t("Paramètres et abonnements mis à jour avec succès"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -79,7 +82,7 @@ const Settings: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      message.success('Nouvel abonnement ajouté avec succès');
+      message.success(t("Nouvel abonnement ajouté avec succès"));
       setIsAddPlanModalVisible(false);
       addPlanForm.resetFields();
     },
@@ -92,7 +95,7 @@ const Settings: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plans'] });
-      message.success('Abonnement supprimé avec succès');
+      message.success(t("Abonnement supprimé avec succès"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -119,7 +122,7 @@ const Settings: React.FC = () => {
       queryClient.clear();
       navigate('/login');
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Déconnexion impossible');
+      message.error(error instanceof Error ? error.message : t("Déconnexion impossible"));
     }
   };
 
@@ -131,17 +134,16 @@ const Settings: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'auto', padding: 24 }}>
       <div style={{ marginBottom: 24, flexShrink: 0 }}>
         <Text style={{ fontSize: 16, color: '#64748b' }}>
-          Configurez les paramètres de votre espace, y compris la tarification de la base de données.
-        </Text>
+          {t("Configurez les paramètres de votre espace, y compris la tarification de la base de données.")}{' '}</Text>
       </div>
 
       {plansError && (
         <Alert
           type="error"
           showIcon
-          title="Impossible de charger les plans"
+          title={t("Impossible de charger les plans")}
           description={plansError.message}
-          action={<Button onClick={() => void refetchPlans()}>Réessayer</Button>}
+          action={<Button onClick={() => void refetchPlans()}>{t("Réessayer")}</Button>}
           style={{ marginBottom: 24 }}
         />
       )}
@@ -155,12 +157,12 @@ const Settings: React.FC = () => {
           layout="vertical"
           onFinish={handleFinish}
         >
-          <Title level={5} style={{ marginTop: 0, marginBottom: 20 }}>Tarification par heure</Title>
+          <Title level={5} style={{ marginTop: 0, marginBottom: 20 }}>{t("Tarification par heure")}</Title>
           <Form.Item
             name="hourly_rate"
-            label="Taux Horaire (DT)"
-            rules={[{ required: true, message: 'Veuillez entrer le taux horaire' }]}
-            tooltip="Prix de la session par heure."
+            label={t("Taux Horaire (DT)")}
+            rules={[{ required: true, message: t("Veuillez entrer le taux horaire") }]}
+            tooltip={t("Prix de la session par heure.")}
           >
             <InputNumber min={0} step={0.1} style={{ width: '100%', maxWidth: 300 }} />
           </Form.Item>
@@ -168,31 +170,30 @@ const Settings: React.FC = () => {
           <Divider />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <Title level={5} style={{ margin: 0 }}>Tarification des Abonnements</Title>
+            <Title level={5} style={{ margin: 0 }}>{t("Tarification des Abonnements")}</Title>
             <AuthButton 
               type="primary" 
               icon={<PlusOutlined />} 
               onClick={() => setIsAddPlanModalVisible(true)}
               style={{ borderRadius: 10 }}
             >
-              Créer un abonnement
-            </AuthButton>
+              {t("Créer un abonnement")}{' '}</AuthButton>
           </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
             {plans?.map(plan => (
               <Card 
                 type="inner" 
-                title={plan.name} 
+                title={translatePlanName(plan.name, t)} 
                 key={plan.id} 
                 style={{ borderRadius: 10, background: '#f8fafc' }}
                 extra={
                   <Popconfirm
-                    title="Supprimer cet abonnement"
-                    description="Êtes-vous sûr de vouloir supprimer cet abonnement ?"
+                    title={t("Supprimer cet abonnement")}
+                    description={t("Êtes-vous sûr de vouloir supprimer cet abonnement ?")}
                     onConfirm={() => handleDeletePlan(plan.id)}
-                    okText="Oui"
-                    cancelText="Non"
+                    okText={t("Oui")}
+                    cancelText={t("Non")}
                   >
                     <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deletePlanMutation.isPending && deletePlanMutation.variables === plan.id} />
                   </Popconfirm>
@@ -200,15 +201,15 @@ const Settings: React.FC = () => {
               >
                 <Form.Item
                   name={`plan_${plan.id}_price`}
-                  label="Prix (DT)"
-                  rules={[{ required: true, message: 'Veuillez entrer le prix' }]}
+                  label={t("Prix (DT)")}
+                  rules={[{ required: true, message: t("Veuillez entrer le prix") }]}
                 >
                   <InputNumber min={0} step={1} style={{ width: '100%' }} />
                 </Form.Item>
                 <Form.Item
                   name={`plan_${plan.id}_duration`}
-                  label="Durée (Jours)"
-                  rules={[{ required: true, message: 'Veuillez entrer la durée' }]}
+                  label={t("Durée (Jours)")}
+                  rules={[{ required: true, message: t("Veuillez entrer la durée") }]}
                 >
                   <InputNumber min={1} step={1} style={{ width: '100%' }} />
                 </Form.Item>
@@ -220,8 +221,7 @@ const Settings: React.FC = () => {
 
           <Form.Item style={{ marginBottom: 0 }}>
             <AuthButton type="primary" htmlType="submit" loading={updateMutation.isPending} disabled={!!plansError} size="large" style={{ borderRadius: 10 }}>
-              Enregistrer les modifications
-            </AuthButton>
+              {t("Enregistrer les modifications")}{' '}</AuthButton>
           </Form.Item>
         </Form>
       </Card>
@@ -232,8 +232,8 @@ const Settings: React.FC = () => {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <Title level={5} style={{ color: '#ef4444', margin: 0 }}>Déconnexion</Title>
-            <Text type="secondary" style={{ color: '#f87171' }}>Se déconnecter de votre session actuelle de manière sécurisée.</Text>
+            <Title level={5} style={{ color: '#ef4444', margin: 0 }}>{t("Déconnexion")}</Title>
+            <Text type="secondary" style={{ color: '#f87171' }}>{t("Se déconnecter de votre session actuelle de manière sécurisée.")}</Text>
           </div>
           <Button 
             danger 
@@ -243,13 +243,12 @@ const Settings: React.FC = () => {
             size="large"
             style={{ borderRadius: 10 }}
           >
-            Déconnexion
-          </Button>
+            {t("Déconnexion")}{' '}</Button>
         </div>
       </Card>
 
       <Modal
-        title="Créer un nouvel abonnement"
+        title={t("Créer un nouvel abonnement")}
         open={isAddPlanModalVisible}
         onCancel={() => {
           setIsAddPlanModalVisible(false);
@@ -264,32 +263,30 @@ const Settings: React.FC = () => {
         >
           <Form.Item
             name="name"
-            label="Nom de l'abonnement"
-            rules={[{ required: true, message: 'Veuillez entrer le nom' }]}
+            label={t("Nom de l'abonnement")}
+            rules={[{ required: true, message: t("Veuillez entrer le nom") }]}
           >
-            <Input placeholder="Ex: Journalier" />
+            <Input placeholder={t("Ex: Journalier")} />
           </Form.Item>
           <Form.Item
             name="duration_days"
-            label="Durée (Jours)"
-            rules={[{ required: true, message: 'Veuillez entrer la durée' }]}
+            label={t("Durée (Jours)")}
+            rules={[{ required: true, message: t("Veuillez entrer la durée") }]}
           >
-            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 1" />
+            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder={t("Ex: 1")} />
           </Form.Item>
           <Form.Item
             name="price"
-            label="Prix (DT)"
-            rules={[{ required: true, message: 'Veuillez entrer le prix' }]}
+            label={t("Prix (DT)")}
+            rules={[{ required: true, message: t("Veuillez entrer le prix") }]}
           >
-            <InputNumber min={0} step={1} style={{ width: '100%' }} placeholder="Ex: 5" />
+            <InputNumber min={0} step={1} style={{ width: '100%' }} placeholder={t("Ex: 5")} />
           </Form.Item>
           <Form.Item style={{ marginBottom: 0, marginTop: 24, textAlign: 'right' }}>
             <Button onClick={() => setIsAddPlanModalVisible(false)} style={{ marginRight: 8 }}>
-              Annuler
-            </Button>
+              {t("Annuler")}{' '}</Button>
             <AuthButton type="primary" htmlType="submit" loading={addPlanMutation.isPending}>
-              Créer l'abonnement
-            </AuthButton>
+              {t("Créer l'abonnement")}{' '}</AuthButton>
           </Form.Item>
         </Form>
       </Modal>

@@ -11,8 +11,12 @@ import { createExpense, deleteExpense, getExpenses, updateExpense } from './api'
 import ExpenseForm from './ExpenseForm';
 import { expenseCategories, formatExpenseAmount } from './types';
 import type { Expense, ExpenseInput } from './types';
+import { useTranslation } from 'react-i18next';
+import { getNumberLocale } from '../../i18n';
 
 export default function ExpenseList() {
+  const { t, i18n } = useTranslation();
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
@@ -30,17 +34,17 @@ export default function ExpenseList() {
   };
   const createMutation = useMutation({
     mutationFn: createExpense,
-    onSuccess: () => { refresh(); setOpen(false); void messageApi.success('Frais ajouté avec succès'); },
+    onSuccess: () => { refresh(); setOpen(false); void messageApi.success(t('Frais ajouté avec succès')); },
     onError: (error: Error) => { void messageApi.error(error.message); },
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: ExpenseInput }) => updateExpense(id, data),
-    onSuccess: () => { refresh(); setOpen(false); void messageApi.success('Frais mis à jour avec succès'); },
+    onSuccess: () => { refresh(); setOpen(false); void messageApi.success(t('Frais mis à jour avec succès')); },
     onError: (error: Error) => { void messageApi.error(error.message); },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteExpense,
-    onSuccess: () => { refresh(); void messageApi.success('Frais supprimé'); },
+    onSuccess: () => { refresh(); void messageApi.success(t('Frais supprimé')); },
     onError: (error: Error) => { void messageApi.error(error.message); },
   });
   const categories = [...new Set([...expenseCategories, ...expenses.map(expense => expense.category)])];
@@ -66,15 +70,15 @@ export default function ExpenseList() {
   };
 
   const columns: TableColumnsType<Expense> = [
-    { title: 'Nom', dataIndex: 'name', sorter: (a, b) => a.name.localeCompare(b.name) },
-    { title: 'Catégorie', dataIndex: 'category', render: (value: string) => <Tag>{value}</Tag> },
-    { title: 'Date', dataIndex: 'expense_date', render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
+    { title: t("Nom"), dataIndex: 'name', sorter: (a, b) => a.name.localeCompare(b.name) },
+    { title: t("Catégorie"), dataIndex: 'category', render: (value: string) => <Tag>{t(value)}</Tag> },
+    { title: t("Date"), dataIndex: 'expense_date', render: (value: string) => dayjs(value).format('DD/MM/YYYY'),
       sorter: (a, b) => a.expense_date.localeCompare(b.expense_date) },
-    { title: 'Montant', dataIndex: 'amount', align: 'right', render: formatExpenseAmount,
+    { title: t("Montant"), dataIndex: 'amount', align: 'right', render: (amount: number) => formatExpenseAmount(amount, numberLocale),
       sorter: (a, b) => a.amount - b.amount },
-    { title: 'Notes', dataIndex: 'notes', ellipsis: true, render: (value?: string) => value || '-' },
+    { title: t("Notes"), dataIndex: 'notes', ellipsis: true, render: (value?: string) => value || '-' },
     {
-      title: 'Actions', key: 'actions', width: 120,
+      title: t("Actions"), key: 'actions', width: 120,
       render: (_: unknown, expense: Expense) => (
         <Space>
           <AuthButton type="text" icon={<EditOutlined />} aria-label={`Modifier ${expense.name}`}
@@ -82,9 +86,9 @@ export default function ExpenseList() {
           {isDemo ? (
             <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label={`Supprimer ${expense.name}`} />
           ) : (
-            <Popconfirm title="Supprimer le frais"
-              description="Êtes-vous sûr de vouloir supprimer ce frais ?"
-              onConfirm={() => handleDelete(expense.id)} okText="Oui" cancelText="Non">
+            <Popconfirm title={t("Supprimer le frais")}
+              description={t("Êtes-vous sûr de vouloir supprimer ce frais ?")}
+              onConfirm={() => handleDelete(expense.id)} okText={t("Oui")} cancelText={t("Non")}>
               <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label={`Supprimer ${expense.name}`}
                 disabled={deleteMutation.isPending}
                 loading={deleteMutation.isPending && deleteMutation.variables === expense.id} />
@@ -100,29 +104,28 @@ export default function ExpenseList() {
       {contextHolder}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
         <Space wrap>
-          <Input placeholder="Rechercher des frais..." prefix={<SearchOutlined />}
-            aria-label="Rechercher des frais" value={search} onChange={event => setSearch(event.target.value)}
+          <Input placeholder={t("Rechercher des frais...")} prefix={<SearchOutlined />}
+            aria-label={t("Rechercher des frais")} value={search} onChange={event => setSearch(event.target.value)}
             style={{ width: 280 }} allowClear />
-          <Select placeholder="Toutes les catégories" aria-label="Filtrer par catégorie"
+          <Select placeholder={t("Toutes les catégories")} aria-label={t("Filtrer par catégorie")}
             value={category} onChange={setCategory} allowClear style={{ width: 220 }}
-            options={categories.map(value => ({ label: value, value }))} />
+            options={categories.map(value => ({ label: t(value), value }))} />
         </Space>
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => handleEdit()}>
-          Nouveau frais
-        </AuthButton>
+          {t("Nouveau frais")}{' '}</AuthButton>
       </div>
       {error && (
-        <Alert type="error" showIcon title="Impossible de charger les frais" description={error.message}
-          action={<Button onClick={() => { void refetch(); }}>Réessayer</Button>}
+        <Alert type="error" showIcon title={t("Impossible de charger les frais")} description={error.message}
+          action={<Button onClick={() => { void refetch(); }}>{t("Réessayer")}</Button>}
           style={{ marginBottom: 16 }} />
       )}
       <Table<Expense>
         columns={columns} dataSource={filtered} rowKey="id" loading={isLoading} scroll={{ x: 850 }}
         pagination={{ defaultPageSize: 5, showSizeChanger: true,
-          showTotal: count => `Total : ${count} frais` }}
+          showTotal: count => t('Total : {{count}} frais', { count }) }}
         footer={() => (
           <Typography.Text strong>
-            Total des frais affichés : {formatExpenseAmount(total)}
+            {t("Total des frais affichés :")}{' '}{formatExpenseAmount(total, numberLocale)}
           </Typography.Text>
         )}
       />

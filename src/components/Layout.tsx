@@ -21,12 +21,15 @@ import { signOut } from '../lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { useDatabaseRealtime } from '../hooks/useDatabaseRealtime';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const { Header, Sider, Content } = AntLayout;
 
 const AppLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState(false);
   const { role, signOut: clearAuth } = useAuthStore();
+  const { t } = useTranslation();
   const { status: realtimeStatus } = useDatabaseRealtime();
   const queryClient = useQueryClient();
   const {
@@ -42,7 +45,7 @@ const AppLayout: React.FC = () => {
       queryClient.clear();
       navigate('/login');
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'Déconnexion impossible');
+      message.error(error instanceof Error ? error.message : t("Déconnexion impossible"));
     }
   };
 
@@ -50,42 +53,42 @@ const AppLayout: React.FC = () => {
     {
       key: '/',
       icon: <DashboardOutlined />,
-      label: 'Dashboard',
+      label: t('Dashboard'),
     },
     {
       key: '/customers',
       icon: <UserOutlined />,
-      label: 'Visiteurs',
+      label: t('Visiteurs'),
     },
     {
       key: '/sessions',
       icon: <ClockCircleOutlined />,
-      label: 'Sessions',
+      label: t('Sessions'),
     },
     {
       key: '/subscriptions',
       icon: <CreditCardOutlined />,
-      label: 'Abonnements',
+      label: t('Abonnements'),
     },
     {
       key: '/products',
       icon: <ShoppingOutlined />,
-      label: 'Produits',
+      label: t('Produits'),
     },
     {
       key: '/expenses',
       icon: <WalletOutlined />,
-      label: 'Frais',
+      label: t('Frais'),
     },
     {
       key: '/rooms',
       icon: <HomeOutlined />,
-      label: 'Gestion des chambres',
+      label: t('Gestion des chambres'),
     },
     {
       key: '/settings',
       icon: <SettingOutlined />,
-      label: 'Paramètres',
+      label: t('Paramètres'),
     },
   ];
 
@@ -94,7 +97,7 @@ const AppLayout: React.FC = () => {
       {
         key: '/reports',
         icon: <BarChartOutlined />,
-        label: 'Rapports',
+        label: t('Rapports'),
       }
     );
   }
@@ -103,22 +106,22 @@ const AppLayout: React.FC = () => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: 'Déconnexion',
+      label: t('Déconnexion'),
       danger: true,
       onClick: handleLogout,
     },
   ];
 
   const pageTitle: Record<string, string> = {
-    '/': 'Dashboard',
-    '/customers': 'Visiteurs',
-    '/sessions': 'Sessions',
-    '/subscriptions': 'Abonnements',
-    '/products': 'Produits',
-    '/expenses': 'Frais',
-    '/rooms': 'Gestion des chambres',
-    '/reports': 'Rapports',
-    '/settings': 'Paramètres',
+    '/': t('Dashboard'),
+    '/customers': t('Visiteurs'),
+    '/sessions': t('Sessions'),
+    '/subscriptions': t('Abonnements'),
+    '/products': t('Produits'),
+    '/expenses': t('Frais'),
+    '/rooms': t('Gestion des chambres'),
+    '/reports': t('Rapports'),
+    '/settings': t('Paramètres'),
   };
 
   return (
@@ -169,8 +172,7 @@ const AppLayout: React.FC = () => {
             </svg>
             {!collapsed && (
               <span style={{ color: 'white', fontSize: 18, fontWeight: 700, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-                Co-Manager
-              </span>
+                {t("Co-Manager")}{' '}</span>
             )}
           </div>
           {!collapsed && (
@@ -231,10 +233,10 @@ const AppLayout: React.FC = () => {
               </div>
               <div style={{ overflow: 'hidden', flex: 1 }}>
                 <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {role === 'admin' ? 'Administrateur' : role === 'demo' ? 'Demo' : 'Staff'}
+                  {role === 'admin' ? t("Administrateur") : role === 'demo' ? t("Demo") : t("Staff")}
                 </div>
                 <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11, whiteSpace: 'nowrap' }}>
-                  {role === 'admin' ? 'Accès complet' : role === 'demo' ? 'Lecture seule' : 'Accès limité'}
+                  {role === 'admin' ? t("Accès complet") : role === 'demo' ? t("Lecture seule") : t("Accès limité")}
                 </div>
               </div>
             </div>
@@ -284,6 +286,7 @@ const AppLayout: React.FC = () => {
             </h2>
           </div>
           <Space size={16}>
+            <LanguageSwitcher />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" trigger={['click']}>
               <div
                 style={{
@@ -314,10 +317,10 @@ const AppLayout: React.FC = () => {
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
-                    {role === 'admin' ? 'Admin' : role === 'demo' ? 'Demo' : 'Staff'}
+                    {role === 'admin' ? t("Admin") : role === 'demo' ? t("Demo") : t("Staff")}
                   </div>
                   <div style={{ fontSize: 11, color: '#94a3b8', lineHeight: 1.2 }}>
-                    {role === 'admin' ? 'Administrateur' : role === 'demo' ? 'Lecture seule' : 'Employé'}
+                    {role === 'admin' ? t("Administrateur") : role === 'demo' ? t("Lecture seule") : t("Employé")}
                   </div>
                 </div>
                 <DownOutlined style={{ fontSize: 10, color: '#94a3b8' }} />
@@ -350,10 +353,8 @@ const AppLayout: React.FC = () => {
               letterSpacing: '0.05em',
               textTransform: 'uppercase'
             }}>
-              Portfolio Demo Mode
-            </span>
-            You are exploring a read-only version of the application. Administrative actions are disabled.
-          </div>
+              {t("Portfolio Demo Mode")}{' '}</span>
+            {t("You are exploring a read-only version of the application. Administrative actions are disabled.")}{' '}</div>
         )}
 
         <Content style={{ margin: 0, overflow: 'hidden', flex: 1, display: 'flex', flexDirection: 'column' }}>

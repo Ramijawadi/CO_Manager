@@ -31,6 +31,8 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
+import { useTranslation } from 'react-i18next';
+import { getNumberLocale } from '../i18n';
 
 dayjs.extend(relativeTime);
 dayjs.locale('fr');
@@ -62,7 +64,7 @@ const metricCards = [
     icon: <DollarOutlined />,
     color: '#d97706',
     bg: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
-    suffix: ' DT',
+    suffix: 'DT',
     precision: 3,
   },
   {
@@ -86,9 +88,10 @@ const metricCards = [
 ];
 
 const LiveIndicator: React.FC<{ status: 'connected' | 'polling' | 'disconnected' | 'error' }> = ({ status }) => {
+  const { t } = useTranslation();
   const color = status === 'connected' || status === 'polling' ? '#10b981' : status === 'error' ? '#ef4444' : '#94a3b8';
-  const label = status === 'polling' ? 'Actualisation toutes les 15 s'
-    : status === 'connected' ? 'En direct' : status === 'error' ? 'Erreur' : 'Hors ligne';
+  const label = status === 'polling' ? t('Actualisation toutes les 15 s')
+    : status === 'connected' ? t('En direct') : status === 'error' ? t('Erreur') : t('Hors ligne');
 
   return (
     <Tooltip title={label}>
@@ -110,6 +113,8 @@ const LiveIndicator: React.FC<{ status: 'connected' | 'polling' | 'disconnected'
 };
 
 const Dashboard: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
   const realtimeStatus = useOutletContext<RealtimeStatus>();
 
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery({
@@ -138,7 +143,7 @@ const Dashboard: React.FC = () => {
 
   const sessionColumns = [
     {
-      title: 'Client',
+      title: t("Client"),
       dataIndex: 'customer_name',
       key: 'customer_name',
       render: (name: string) => (
@@ -146,7 +151,7 @@ const Dashboard: React.FC = () => {
       ),
     },
     {
-      title: 'Arrivée',
+      title: t("Arrivée"),
       dataIndex: 'entry_time',
       key: 'entry_time',
       render: (time: string) => (
@@ -154,7 +159,7 @@ const Dashboard: React.FC = () => {
       ),
     },
     {
-      title: 'Durée',
+      title: t("Durée"),
       dataIndex: 'duration_minutes',
       key: 'duration_minutes',
       render: (min: number) => {
@@ -171,7 +176,7 @@ const Dashboard: React.FC = () => {
 
   const productColumns = [
     {
-      title: 'Produit',
+      title: t("Produit"),
       dataIndex: 'name',
       key: 'name',
       render: (name: string) => (
@@ -179,7 +184,7 @@ const Dashboard: React.FC = () => {
       ),
     },
     {
-      title: 'Qté',
+      title: t("Qté"),
       dataIndex: 'quantity_sold',
       key: 'quantity_sold',
       width: 60,
@@ -188,12 +193,14 @@ const Dashboard: React.FC = () => {
       ),
     },
     {
-      title: 'Revenu',
+      title: t("Revenu"),
       dataIndex: 'revenue',
       key: 'revenue',
       width: 90,
       render: (rev: number) => (
-        <Text strong style={{ fontSize: 13, color: '#059669' }}>{rev.toFixed(2)} DT</Text>
+        <Text strong style={{ fontSize: 13, color: '#059669' }}>
+          {rev.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {t("DT")}
+        </Text>
       ),
     },
   ];
@@ -210,7 +217,7 @@ const Dashboard: React.FC = () => {
       {/* Header with live indicator */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
         <LiveIndicator status={realtimeStatus} />
-        <Tooltip title="Rafraîchir">
+        <Tooltip title={t("Rafraîchir")}>
           <ReloadOutlined
             style={{ fontSize: 16, color: '#94a3b8', cursor: 'pointer' }}
             onClick={() => refetchStats()}
@@ -219,15 +226,14 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Metrics Row */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: 18, flex: '0 0 auto' }}>
+      <div className="dashboard-metrics">
         {metricCards.map((card, index) => (
           <Card
             key={card.key}
             loading={statsLoading}
             bordered={false}
-            className="animate-fade-in-up"
+            className="dashboard-metric-card animate-fade-in-up"
             style={{
-              flex: 1,
               borderRadius: 14,
               border: '1px solid #f1f5f9',
               overflow: 'hidden',
@@ -235,20 +241,10 @@ const Dashboard: React.FC = () => {
             }}
             styles={{ body: { padding: '22px 24px 20px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <div style={{ minWidth: 0 }}>
-                <Text style={{ fontSize: 10.5, fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  {card.title}
-                </Text>
-                <div style={{ marginTop: 10 }}>
-                  <Statistic
-                    value={stats?.[card.key as keyof typeof stats] as number}
-                    precision={card.precision}
-                    suffix={card.suffix}
-                    valueStyle={{ fontSize: 28, fontWeight: 700, color: '#0f172a', lineHeight: 1 }}
-                  />
-                </div>
-              </div>
+            <div className="dashboard-metric-heading">
+              <Text className="dashboard-metric-label">
+                {t(card.title)}
+              </Text>
               <div
                 style={{
                   width: 48,
@@ -264,6 +260,12 @@ const Dashboard: React.FC = () => {
                 <span style={{ fontSize: 20, color: card.color }}>{card.icon}</span>
               </div>
             </div>
+            <Statistic
+              className="dashboard-metric-value"
+              value={stats?.[card.key as keyof typeof stats] as number}
+              precision={card.precision}
+              suffix={card.suffix ? <bdi>{t(card.suffix)}</bdi> : null}
+            />
           </Card>
         ))}
       </div>
@@ -278,8 +280,7 @@ const Dashboard: React.FC = () => {
             styles={{ body: { padding: '18px 20px 8px', height: '100%', display: 'flex', flexDirection: 'column' } }}
           >
             <Text style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 14, flexShrink: 0 }}>
-              Flux de Revenus (7 jours)
-            </Text>
+              {t("Flux de Revenus (7 jours)")}{' '}</Text>
             <div style={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={charts?.revenueData}>
@@ -293,7 +294,7 @@ const Dashboard: React.FC = () => {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} width={45} />
                   <RechartsTooltip
-                    formatter={(value) => [`${value} DT`, 'Revenus']}
+                    formatter={(value) => [`${Number(value).toLocaleString(numberLocale)} ${t("DT")}`, t("Revenus")]}
                     contentStyle={{ borderRadius: 10, border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', fontSize: 13 }}
                   />
                   <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2.5} fillOpacity={1} fill="url(#colorRevenue)" />
@@ -311,8 +312,7 @@ const Dashboard: React.FC = () => {
             styles={{ body: { padding: '18px 20px 8px', height: '100%', display: 'flex', flexDirection: 'column' } }}
           >
             <Text style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 14, flexShrink: 0 }}>
-              Flux de Visiteurs (aujourd'hui)
-            </Text>
+              {t("Flux de Visiteurs (aujourd'hui)")}{' '}</Text>
             <div style={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={charts?.visitorData}>
@@ -320,7 +320,7 @@ const Dashboard: React.FC = () => {
                   <XAxis dataKey="time" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} width={40} />
                   <RechartsTooltip
-                    formatter={(value) => [value, 'Visiteurs']}
+                    formatter={(value) => [Number(value).toLocaleString(numberLocale), t("Visiteurs")]}
                     contentStyle={{ borderRadius: 10, border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.06)', fontSize: 13 }}
                   />
                   <Line
@@ -349,8 +349,7 @@ const Dashboard: React.FC = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={{ fontSize: 14, fontWeight: 600, color: '#0f172a' }}>
-                Sessions actives
-              </Text>
+                {t("Sessions actives")}{' '}</Text>
               <Tag color="green" style={{ borderRadius: 6, fontSize: 11 }}>
                 {activeSessions?.length ?? 0}
               </Tag>
@@ -361,7 +360,7 @@ const Dashboard: React.FC = () => {
               rowKey="id"
               pagination={{ defaultPageSize: 5 }}
               size="small"
-              locale={{ emptyText: 'Aucune session active' }}
+              locale={{ emptyText: t("Aucune session active") }}
               style={{ borderRadius: 10 }}
             />
           </Card>
@@ -375,15 +374,14 @@ const Dashboard: React.FC = () => {
             styles={{ body: { padding: '18px 20px 10px' } }}
           >
             <Text style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 12, display: 'block' }}>
-              Top Produits (aujourd'hui)
-            </Text>
+              {t("Top Produits (aujourd'hui)")}{' '}</Text>
             <Table
               dataSource={topProducts}
               columns={productColumns}
               rowKey="product_id"
               pagination={{ defaultPageSize: 5 }}
               size="small"
-              locale={{ emptyText: 'Aucune vente aujourd\'hui' }}
+              locale={{ emptyText: t("Aucune vente aujourd'hui") }}
               style={{ borderRadius: 10 }}
             />
           </Card>

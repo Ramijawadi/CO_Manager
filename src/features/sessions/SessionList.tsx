@@ -10,8 +10,12 @@ import SessionConsumptionPanel from './SessionConsumptionPanel';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatProductPrice } from '../../lib/productMoney';
+import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '../../i18n';
 
 const SessionList: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const dateLocale = getDateLocale(i18n.resolvedLanguage);
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
@@ -35,7 +39,7 @@ const SessionList: React.FC = () => {
     mutationFn: ({ id, data }: { id: string; data: any }) => checkoutSession(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
-      message.success('Paiement effectué avec succès');
+      message.success(t("Paiement effectué avec succès"));
       setCheckoutDetails(null);
     },
     onError: (error: Error) => message.error(error.message),
@@ -45,7 +49,7 @@ const SessionList: React.FC = () => {
     mutationFn: createSession,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
-      message.success('Enregistré avec succès');
+      message.success(t("Enregistré avec succès"));
       setIsCheckInModalOpen(false);
       form.resetFields();
     },
@@ -96,7 +100,7 @@ const SessionList: React.FC = () => {
         isSubscribed
       });
     } catch (error) {
-      message.error('Échec du calcul des détails de facturation');
+      message.error(t("Échec du calcul des détails de facturation"));
     }
   };
 
@@ -140,42 +144,44 @@ const SessionList: React.FC = () => {
 
   const columns = [
     {
-      title: 'Client',
+      title: t("Client"),
       dataIndex: ['customers', 'full_name'],
       key: 'customer_name',
     },
     {
-      title: "Heure d'entrée",
+      title: t("Heure d'entrée"),
       dataIndex: 'entry_time',
       key: 'entry_time',
-      render: (val: string) => new Date(val).toLocaleString('fr-FR'),
+      render: (val: string) => new Date(val).toLocaleString(dateLocale),
     },
     {
-      title: "Heure de sortie",
+      title: t("Heure de sortie"),
       dataIndex: 'exit_time',
       key: 'exit_time',
       render: (val: string | null) => val
-        ? new Date(val).toLocaleString('fr-FR')
-        : <span style={{ color: '#f59e0b' }}>En cours</span>,
+        ? new Date(val).toLocaleString(dateLocale)
+        : <span style={{ color: '#f59e0b' }}>{t("En cours")}</span>,
     },
     {
-      title: 'Durée (h)',
+      title: t("Durée (h)"),
       key: 'duration',
       render: (_: any, record: Session) => {
         const start = new Date(record.entry_time).getTime();
         const end = record.exit_time ? new Date(record.exit_time).getTime() : Date.now();
         const hours = ((end - start) / (1000 * 60 * 60)).toFixed(1);
-        return `${hours}h`;
+        return `${hours} ${t("h")}`;
       },
     },
     {
-      title: 'Statut',
+      title: t("Statut"),
       dataIndex: 'status',
       key: 'status',
-      render: (val: string) => <span style={{ color: 'green' }}>{val.toUpperCase()}</span>,
+      render: (val: string) => <span style={{ color: 'green' }}>
+        {i18n.resolvedLanguage === 'ar' ? t(val.toLowerCase()) : val.toUpperCase()}
+      </span>,
     },
     {
-      title: 'Action',
+      title: t("Action"),
       key: 'action',
       render: (_: any, record: Session) => (
         <AuthButton 
@@ -184,8 +190,7 @@ const SessionList: React.FC = () => {
           icon={<CheckCircleOutlined />} 
           onClick={() => handleInitiateCheckout(record)}
         >
-          Clôturer
-        </AuthButton>
+          {t("Clôturer")}{' '}</AuthButton>
       ),
     },
   ];
@@ -193,13 +198,12 @@ const SessionList: React.FC = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingTop: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>Sessions Actives</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>{t("Sessions Actives")}</h2>
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
           if (!requireAdmin()) return;
           setIsCheckInModalOpen(true);
         }}>
-          Nouvelle session
-        </AuthButton>
+          {t("Nouvelle session")}{' '}</AuthButton>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
@@ -210,7 +214,9 @@ const SessionList: React.FC = () => {
           loading={isLoading}
           pagination={{ 
             defaultPageSize: 5, 
-            showTotal: (total) => `Total: ${total} session${total > 1 ? 's' : ''}`,
+            showTotal: total => total === 1
+              ? t('Total : 1 session')
+              : t('Total : {{count}} sessions', { count: total }),
             style: { marginTop: '16px' }
           }}
           expandable={{
@@ -227,7 +233,7 @@ const SessionList: React.FC = () => {
       </div>
 
       <Modal
-        title="Nouvel enregistrement"
+        title={t("Nouvel enregistrement")}
         open={isCheckInModalOpen}
         onCancel={() => {
           setIsCheckInModalOpen(false);
@@ -245,25 +251,23 @@ const SessionList: React.FC = () => {
               onClick={() => setVisitorMode(false)}
               style={{ marginRight: 8 }}
             >
-              Sélectionner un client
-            </Button>
+              {t("Sélectionner un client")}{' '}</Button>
             <Button 
               type={visitorMode ? 'primary' : 'default'} 
               onClick={() => setVisitorMode(true)}
             >
-              Visiteur rapide
-            </Button>
+              {t("Visiteur rapide")}{' '}</Button>
           </div>
 
           {!visitorMode ? (
             <Form.Item
               name="customer_id"
-              label="Sélectionner un client"
-              rules={[{ required: true, message: 'Veuillez sélectionner un client' }]}
+              label={t("Sélectionner un client")}
+              rules={[{ required: true, message: t("Veuillez sélectionner un client") }]}
             >
               <Select
                 showSearch
-                placeholder="Rechercher un client"
+                placeholder={t("Rechercher un client")}
                 optionFilterProp="children"
                 filterOption={(input, option) =>
                   (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
@@ -275,40 +279,40 @@ const SessionList: React.FC = () => {
             <>
               <Form.Item
                 name="full_name"
-                label="Nom complet"
-                rules={[{ required: true, message: 'Veuillez entrer le nom du visiteur' }]}
+                label={t("Nom complet")}
+                rules={[{ required: true, message: t("Veuillez entrer le nom du visiteur") }]}
               >
-                <Input placeholder="Nom du visiteur" />
+                <Input placeholder={t("Nom du visiteur")} />
               </Form.Item>
-              <Form.Item name="phone" label="Téléphone (Optionnel)">
-                <Input placeholder="Numéro de téléphone" />
+              <Form.Item name="phone" label={t("Téléphone (Optionnel)")}>
+                <Input placeholder={t("Numéro de téléphone")} />
               </Form.Item>
             </>
           )}
-          <button type="submit" style={{ display: 'none' }}>Submit</button>
+          <button type="submit" style={{ display: 'none' }}>{t("Submit")}</button>
         </Form>
       </Modal>
 
       <Modal
-        title="Résumé de la session"
+        title={t("Résumé de la session")}
         open={!!checkoutDetails}
         onCancel={() => setCheckoutDetails(null)}
         onOk={handleConfirmCheckout}
-        okText="Confirmer et Terminer"
+        okText={t("Confirmer et Terminer")}
         confirmLoading={checkoutMutation.isPending}
         okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
       >
         {checkoutDetails && (
           <div style={{ fontSize: '16px' }}>
-            <p><strong>Client :</strong> {checkoutDetails.session.customers?.full_name}</p>
+            <p><strong>{t("Client :")}</strong> {checkoutDetails.session.customers?.full_name}</p>
             {checkoutDetails.isSubscribed ? (
-              <p style={{ color: 'green' }}>✓ Couvert par un abonnement actif</p>
+              <p style={{ color: 'green' }}>{t("✓ Couvert par un abonnement actif")}</p>
             ) : (
-              <p><strong>Coût de temps :</strong> {checkoutDetails.timeCost.toFixed(3)} DT</p>
+              <p><strong>{t("Coût de temps :")}</strong> {checkoutDetails.timeCost.toFixed(3)} {t("DT")}</p>
             )}
-            <p><strong>Coût des produits :</strong> {formatProductPrice(checkoutDetails.productCost)}</p>
+            <p><strong>{t("Coût des produits :")}</strong> {formatProductPrice(checkoutDetails.productCost, i18n.resolvedLanguage)}</p>
             <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f0f0f0' }}>
-              <h3><strong>Total à payer :</strong> {(checkoutDetails.timeCost + checkoutDetails.productCost).toFixed(3)} DT</h3>
+              <h3><strong>{t("Total à payer :")}</strong> {(checkoutDetails.timeCost + checkoutDetails.productCost).toFixed(3)} {t("DT")}</h3>
             </div>
           </div>
         )}

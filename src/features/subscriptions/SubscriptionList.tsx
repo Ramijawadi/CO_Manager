@@ -9,8 +9,18 @@ import SubscriptionForm from './SubscriptionForm';
 import type { Subscription, SubscriptionInput } from './types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useTranslation } from 'react-i18next';
+import { getDateLocale, getNumberLocale } from '../../i18n';
+import { formatExpenseAmount } from '../expenses/types';
+import { translatePlanName } from '../plans/labels';
 
 const SubscriptionList: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
+  const dateLocale = getDateLocale(i18n.resolvedLanguage);
+  const formatPlanPrice = (price: number) => i18n.resolvedLanguage === 'ar'
+    ? formatExpenseAmount(price, numberLocale)
+    : `${price.toFixed(3)} DT`;
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,9 +36,9 @@ const SubscriptionList: React.FC = () => {
   React.useEffect(() => {
     if (error) {
       console.error('Error loading subscriptions:', error);
-      message.error(`Erreur lors du chargement des abonnements: ${error.message}`);
+      message.error(t('Erreur lors du chargement des abonnements: {{error}}', { error: error.message }));
     }
-  }, [error]);
+  }, [error, t]);
 
   const { data: customers = [] } = useQuery({
     queryKey: ['customers'],
@@ -45,7 +55,7 @@ const SubscriptionList: React.FC = () => {
     mutationFn: createSubscription,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-      message.success('Abonnement créé avec succès');
+      message.success(t("Abonnement créé avec succès"));
       setIsModalOpen(false);
     },
     onError: (error: Error) => message.error(error.message),
@@ -55,7 +65,7 @@ const SubscriptionList: React.FC = () => {
     mutationFn: (id: string) => updateSubscription(id, { status: 'cancelled' }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-      message.success('Abonnement annulé');
+      message.success(t("Abonnement annulé"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -64,7 +74,7 @@ const SubscriptionList: React.FC = () => {
     mutationFn: deleteSubscription,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
-      message.success('Abonnement supprimé');
+      message.success(t("Abonnement supprimé"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -90,7 +100,7 @@ const SubscriptionList: React.FC = () => {
 
   const columns = [
     {
-      title: 'Client',
+      title: t("Client"),
       key: 'customer',
       width: 180,
       render: (_: any, record: Subscription) => (
@@ -100,42 +110,42 @@ const SubscriptionList: React.FC = () => {
           </div>
           {record.customers?.phone && (
             <div style={{ fontSize: 12, color: '#64748b' }}>
-              📞 {record.customers.phone}
+              {t("📞")}{' '}{record.customers.phone}
             </div>
           )}
           {record.customers?.email && (
             <div style={{ fontSize: 12, color: '#64748b' }}>
-              ✉️ {record.customers.email}
+              {t("✉️")}{' '}{record.customers.email}
             </div>
           )}
         </div>
       ),
     },
     {
-      title: 'Plan',
+      title: t("Plan"),
       key: 'plan',
       width: 180,
       render: (_: any, record: Subscription) => (
         <div>
           <div style={{ fontWeight: 500, marginBottom: 2 }}>
-            {record.plans?.name || 'N/A'}
+            {record.plans?.name ? translatePlanName(record.plans.name, t) : t('N/A')}
           </div>
           <div style={{ fontSize: 12, color: '#64748b' }}>
-            {record.plans?.duration_days ?? 'N/A'} jours • {record.plans?.price == null
-              ? 'N/A'
-              : `${Number(record.plans.price).toFixed(3)} DT`}
+            {record.plans?.duration_days?.toLocaleString(numberLocale) ?? t('N/A')} {t("jours •")}{' '}{record.plans?.price == null
+              ? t("N/A")
+              : formatPlanPrice(Number(record.plans.price))}
           </div>
         </div>
       ),
     },
     {
-      title: 'Date de début',
+      title: t("Date de début"),
       dataIndex: 'start_date',
       key: 'start_date',
       width: 120,
       render: (date: string) => (
         <div style={{ fontSize: 13 }}>
-          {new Date(date).toLocaleDateString('fr-FR', {
+          {new Date(date).toLocaleDateString(dateLocale, {
             day: '2-digit',
             month: 'short',
             year: 'numeric'
@@ -144,13 +154,13 @@ const SubscriptionList: React.FC = () => {
       ),
     },
     {
-      title: 'Date de fin',
+      title: t("Date de fin"),
       dataIndex: 'end_date',
       key: 'end_date',
       width: 120,
       render: (date: string) => (
         <div style={{ fontSize: 13 }}>
-          {new Date(date).toLocaleDateString('fr-FR', {
+          {new Date(date).toLocaleDateString(dateLocale, {
             day: '2-digit',
             month: 'short',
             year: 'numeric'
@@ -159,7 +169,7 @@ const SubscriptionList: React.FC = () => {
       ),
     },
     {
-      title: 'Durée restante',
+      title: t("Durée restante"),
       key: 'remaining',
       width: 120,
       render: (_: any, record: Subscription) => {
@@ -169,59 +179,58 @@ const SubscriptionList: React.FC = () => {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         if (record.status === 'cancelled') {
-          return <span style={{ color: '#94a3b8' }}>—</span>;
+          return <span style={{ color: '#94a3b8' }}>{t("—")}</span>;
         }
         
         if (diffDays < 0) {
           return (
             <span style={{ color: '#ef4444', fontWeight: 500 }}>
-              Expiré depuis {Math.abs(diffDays)} j
-            </span>
+              {t("Expiré depuis")}{' '}{Math.abs(diffDays).toLocaleString(numberLocale)} {t("j")}{' '}</span>
           );
         }
         
         if (diffDays === 0) {
-          return <span style={{ color: '#f59e0b', fontWeight: 500 }}>Expire aujourd'hui</span>;
+          return <span style={{ color: '#f59e0b', fontWeight: 500 }}>{t("Expire aujourd'hui")}</span>;
         }
         
         if (diffDays <= 3) {
-          return <span style={{ color: '#f59e0b', fontWeight: 500 }}>{diffDays} jour{diffDays > 1 ? 's' : ''}</span>;
+          return <span style={{ color: '#f59e0b', fontWeight: 500 }}>{diffDays.toLocaleString(numberLocale)} {t(diffDays === 1 ? "jour" : "jours")}</span>;
         }
         
-        return <span style={{ color: '#10b981', fontWeight: 500 }}>{diffDays} jours</span>;
+        return <span style={{ color: '#10b981', fontWeight: 500 }}>{diffDays.toLocaleString(numberLocale)} {t("jours")}</span>;
       },
     },
     {
-      title: 'Statut',
+      title: t("Statut"),
       key: 'status',
       width: 100,
       render: (_: any, record: Subscription) => {
         const today = new Date().toISOString().split('T')[0];
         const isExpired = record.end_date < today;
         
-        if (record.status === 'cancelled') return <Tag color="red">Annulé</Tag>;
-        if (isExpired) return <Tag color="orange">Expiré</Tag>;
-        return <Tag color="green">Actif</Tag>;
+        if (record.status === 'cancelled') return <Tag color="red">{t("Annulé")}</Tag>;
+        if (isExpired) return <Tag color="orange">{t("Expiré")}</Tag>;
+        return <Tag color="green">{t("Actif")}</Tag>;
       },
     },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       width: 120,
       render: (_: any, record: Subscription) => (
         <Space size="middle">
           {record.status !== 'cancelled' && (
             isDemo ? (
-              <AuthButton type="text" danger icon={<StopOutlined />} title="Annuler" />
+              <AuthButton type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
             ) : (
               <Popconfirm
-                title="Annuler l'abonnement"
-                description="Êtes-vous sûr de vouloir annuler ?"
+                title={t("Annuler l'abonnement")}
+                description={t("Êtes-vous sûr de vouloir annuler ?")}
                 onConfirm={() => cancelMutation.mutate(record.id)}
-                okText="Oui"
-                cancelText="Non"
+                okText={t("Oui")}
+                cancelText={t("Non")}
               >
-                <AuthButton type="text" danger icon={<StopOutlined />} title="Annuler" />
+                <AuthButton type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
               </Popconfirm>
             )
           )}
@@ -229,11 +238,11 @@ const SubscriptionList: React.FC = () => {
             <AuthButton type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
-              title="Supprimer l'abonnement"
-              description="Êtes-vous sûr de vouloir supprimer cet enregistrement ?"
+              title={t("Supprimer l'abonnement")}
+              description={t("Êtes-vous sûr de vouloir supprimer cet enregistrement ?")}
               onConfirm={() => deleteMutation.mutate(record.id)}
-              okText="Oui"
-              cancelText="Non"
+              okText={t("Oui")}
+              cancelText={t("Non")}
             >
               <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
@@ -247,13 +256,12 @@ const SubscriptionList: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, flexShrink: 0, paddingTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#0f172a' }}>Gestion des Abonnements</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#0f172a' }}>{t("Gestion des Abonnements")}</h2>
           <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
             if (!requireAdmin()) return;
             setIsModalOpen(true);
           }}>
-            Nouvel abonnement
-          </AuthButton>
+            {t("Nouvel abonnement")}{' '}</AuthButton>
         </div>
 
         {/* Statistics Cards */}
@@ -261,7 +269,7 @@ const SubscriptionList: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
-                title="Total Abonnements"
+                title={t("Total Abonnements")}
                 value={subscriptions.length}
                 prefix={<UserOutlined />}
                 valueStyle={{ color: '#3b82f6', fontSize: 20 }}
@@ -271,7 +279,7 @@ const SubscriptionList: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
-                title="Actifs"
+                title={t("Actifs")}
                 value={activeCount}
                 prefix={<CheckCircleOutlined />}
                 valueStyle={{ color: '#10b981', fontSize: 20 }}
@@ -281,7 +289,7 @@ const SubscriptionList: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
-                title="Expirés"
+                title={t("Expirés")}
                 value={expiredCount}
                 valueStyle={{ color: '#f59e0b', fontSize: 20 }}
               />
@@ -290,9 +298,11 @@ const SubscriptionList: React.FC = () => {
           <Col xs={24} sm={12} md={6}>
             <Card size="small">
               <Statistic
-                title="Montant total des abonnements"
-                value={totalSubscriptionAmount.toFixed(3)}
-                suffix="DT"
+                title={t("Montant total des abonnements")}
+                value={i18n.resolvedLanguage === 'ar'
+                  ? totalSubscriptionAmount.toLocaleString(numberLocale, { minimumFractionDigits: 3, maximumFractionDigits: 3 })
+                  : totalSubscriptionAmount.toFixed(3)}
+                suffix={t("DT")}
                 valueStyle={{ color: '#8b5cf6', fontSize: 20 }}
               />
             </Card>
@@ -308,7 +318,9 @@ const SubscriptionList: React.FC = () => {
           loading={isLoading}
           pagination={{
             defaultPageSize: 5,
-            showTotal: (total) => `Total: ${total} abonnement${total > 1 ? 's' : ''}`,
+            showTotal: total => total === 1
+              ? t('Total : 1 abonnement')
+              : t('Total : {{count}} abonnements', { count: total }),
             showSizeChanger: true,
             pageSizeOptions: ['5', '10', '20', '50']
           }}

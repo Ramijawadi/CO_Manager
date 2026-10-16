@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Form, Input, Modal } from 'antd';
 import type { Customer, CustomerInput } from './types';
+import { useTranslation } from 'react-i18next';
 
 interface CustomerFormProps {
   open: boolean;
@@ -11,6 +12,7 @@ interface CustomerFormProps {
 }
 
 const CustomerForm: React.FC<CustomerFormProps> = ({ open, onCancel, onSubmit, initialValues, loading }) => {
+  const { t } = useTranslation();
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -33,7 +35,7 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ open, onCancel, onSubmit, i
 
   return (
     <Modal
-      title={initialValues ? "Modifier le visiteur" : "Ajouter un nouveau visiteur"}
+      title={initialValues ? t("Modifier le visiteur") : t("Ajouter un nouveau visiteur")}
       open={open}
       onCancel={onCancel}
       onOk={handleOk}
@@ -43,33 +45,33 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ open, onCancel, onSubmit, i
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         <Form.Item
           name="full_name"
-          label="Nom Complet"
-          rules={[{ required: true, message: 'Veuillez entrer le nom complet' }]}
+          label={t("Nom Complet")}
+          rules={[{ required: true, message: t("Veuillez entrer le nom complet") }]}
         >
-          <Input placeholder="John Doe" />
+          <Input placeholder={t("John Doe")} />
         </Form.Item>
         <Form.Item
           name="email"
-          label="Email"
+          label={t("Email")}
           rules={[
-            { type: 'email', message: "L'email n'est pas valide !" },
+            { type: 'email', message: t("L'email n'est pas valide !") },
           ]}
         >
-          <Input placeholder="john@example.com" />
+          <Input placeholder={t("john@example.com")} />
         </Form.Item>
         <Form.Item
           name="phone"
-          label="Numéro de téléphone"
+          label={t("Numéro de téléphone")}
         >
-          <Input placeholder="+1 234 567 8900" />
+          <Input placeholder={t("+1 234 567 8900")} />
         </Form.Item>
         <Form.Item
           name="notes"
-          label="Notes"
+          label={t("Notes")}
         >
-          <Input.TextArea rows={3} placeholder="Notes supplémentaires..." />
+          <Input.TextArea rows={3} placeholder={t("Notes supplémentaires...")} />
         </Form.Item>
-        <button type="submit" style={{ display: 'none' }}>Submit</button>
+        <button type="submit" style={{ display: 'none' }}>{t("Submit")}</button>
       </Form>
     </Modal>
   );

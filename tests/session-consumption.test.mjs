@@ -44,6 +44,13 @@ function renderComponent(file, sessions = []) {
     '../../hooks/usePermissions': { usePermissions: () => ({ requireAdmin: () => true, isDemo: false }) },
     '../../lib/productMoney': { formatProductPrice: value => `${value.toFixed(3)}dt` },
     '../../utils/time': {},
+    '../../i18n': { getDateLocale: () => 'fr-FR' },
+    'react-i18next': {
+      useTranslation: () => ({
+        t: (key, values) => key.replace('{{count}}', String(values?.count ?? '{{count}}')),
+        i18n: { resolvedLanguage: 'fr' },
+      }),
+    },
     '../products/api': {},
     '../customers/api': {},
     './api': {},
@@ -69,7 +76,8 @@ test('consumed products retain every row with fixed-header scrolling and five-ro
     assert.deepEqual(table.props.scroll, { x: 520, y: 240 });
     assert.equal(table.props.pagination.defaultPageSize, 5);
     assert.equal(table.props.pagination.showSizeChanger, false);
-    assert.equal(table.props.pagination.showTotal(count), `Total: ${count} produit${count > 1 ? 's' : ''}`);
+    assert.equal(table.props.pagination.showTotal(count),
+      count === 1 ? 'Total : 1 produit' : `Total : ${count} produits`);
   }
 });
 

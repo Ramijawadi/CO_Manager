@@ -4,7 +4,10 @@ import type { Session, SessionProduct } from '../features/sessions/types';
 // Product API amounts are millimes; frontend calculations use dinars.
 export const toProductMillimes = (dinars: number): number => Math.round(dinars * 1000);
 
-export function formatProductPrice(dinars: number): string {
+export function formatProductPrice(dinars: number, language?: string): string {
+  if (language === 'ar') {
+    return `${dinars.toLocaleString('ar-TN', { maximumFractionDigits: 3 })} د.ت`;
+  }
   const [whole, fraction] = dinars.toFixed(3).split('.');
   return fraction === '000' ? `${whole}dt` : `${whole}dt.${fraction}`;
 }

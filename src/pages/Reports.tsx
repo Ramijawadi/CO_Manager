@@ -8,11 +8,16 @@ import { exportToCSV, exportToExcel, exportToPDF } from '../features/reports/exp
 import { getDashboardStats } from '../features/dashboard/api';
 import { useRoleGuard } from '../hooks/useRoleGuard';
 import FinancialSummary from '../features/reports/FinancialSummary';
+import { useTranslation } from 'react-i18next';
+import { getDateLocale, getNumberLocale } from '../i18n';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
 const Reports: React.FC = () => {
+  const { t, i18n } = useTranslation();
+  const dateLocale = getDateLocale(i18n.resolvedLanguage);
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
   useRoleGuard(['admin']);
 
   const queryClient = useQueryClient();
@@ -41,7 +46,7 @@ const Reports: React.FC = () => {
       time_revenue: (todayStats?.revenueToday || 0) - (todayStats?.productSalesToday || 0),
     }),
     onSuccess: () => {
-      message.success('Journée clôturée et données archivées avec succès');
+      message.success(t("Journée clôturée et données archivées avec succès"));
       queryClient.invalidateQueries({ queryKey: ['dailyClosures'] });
     },
     onError: (error: Error) => message.error(error.message),
@@ -49,26 +54,26 @@ const Reports: React.FC = () => {
 
   const handleExportCSV = () => {
     const formattedData = reportData.map(session => ({
-      'ID Session': session.id,
-      'Nom du Client': session.customers?.full_name,
-      "Heure d'entrée": new Date(session.entry_time).toLocaleString('fr-FR'),
-      'Heure de sortie': session.exit_time ? new Date(session.exit_time).toLocaleString('fr-FR') : 'Actif',
-      'Coût Temps (DT)': session.time_cost || 0,
-      'Total Produits (DT)': session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0,
-      'Revenu Total Session (DT)': (session.time_cost || 0) + (session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0),
+      [t('ID Session')]: session.id,
+      [t('Nom du Client')]: session.customers?.full_name,
+      [t("Heure d'entrée")]: new Date(session.entry_time).toLocaleString(dateLocale),
+      [t('Heure de sortie')]: session.exit_time ? new Date(session.exit_time).toLocaleString(dateLocale) : t('Actif'),
+      [t('Coût Temps (DT)')]: session.time_cost || 0,
+      [t('Total Produits (DT)')]: session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0,
+      [t('Revenu Total Session (DT)')]: (session.time_cost || 0) + (session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0),
     }));
     exportToCSV(formattedData, `Rapport_${dateRange[0].format('YYYY-MM-DD')}_au_${dateRange[1].format('YYYY-MM-DD')}`);
   };
 
   const handleExportExcel = () => {
     const formattedData = reportData.map(session => ({
-      'ID Session': session.id,
-      'Nom du Client': session.customers?.full_name,
-      "Heure d'entrée": new Date(session.entry_time).toLocaleString('fr-FR'),
-      'Heure de sortie': session.exit_time ? new Date(session.exit_time).toLocaleString('fr-FR') : 'Actif',
-      'Coût Temps (DT)': session.time_cost || 0,
-      'Total Produits (DT)': session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0,
-      'Revenu Total Session (DT)': (session.time_cost || 0) + (session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0),
+      [t('ID Session')]: session.id,
+      [t('Nom du Client')]: session.customers?.full_name,
+      [t("Heure d'entrée")]: new Date(session.entry_time).toLocaleString(dateLocale),
+      [t('Heure de sortie')]: session.exit_time ? new Date(session.exit_time).toLocaleString(dateLocale) : t('Actif'),
+      [t('Coût Temps (DT)')]: session.time_cost || 0,
+      [t('Total Produits (DT)')]: session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0,
+      [t('Revenu Total Session (DT)')]: (session.time_cost || 0) + (session.session_products?.reduce((acc: any, curr: any) => acc + curr.total_price, 0) || 0),
     }));
     exportToExcel(formattedData, `Rapport_${dateRange[0].format('YYYY-MM-DD')}_au_${dateRange[1].format('YYYY-MM-DD')}`);
   };
@@ -101,27 +106,26 @@ const Reports: React.FC = () => {
   }, 0);
 
   const columns = [
-    { title: 'Date', dataIndex: 'closure_date', key: 'closure_date' },
-    { title: 'Visiteurs', dataIndex: 'total_visitors', key: 'visitors' },
-    { title: 'Revenu Total (DT)', dataIndex: 'total_revenue', key: 'revenue', render: (val: number) => val.toFixed(2) },
+    { title: t("Date"), dataIndex: 'closure_date', key: 'closure_date' },
+    { title: t("Visiteurs"), dataIndex: 'total_visitors', key: 'visitors' },
+    { title: t("Revenu Total (DT)"), dataIndex: 'total_revenue', key: 'revenue', render: (val: number) =>
+      val.toLocaleString(numberLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) },
   ];
 
   return (
     <div style={{ height: '100%', overflow: 'auto', padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexShrink: 0 }}>
         <Text style={{ fontSize: 15, color: '#64748b' }}>
-          Analysez vos données et archivage des journées
-        </Text>
+          {t("Analysez vos données et archivage des journées")}{' '}</Text>
         <Popconfirm
-          title="Clôturer la journée"
-          description="Êtes-vous sûr de vouloir finaliser et archiver les données d'aujourd'hui ?"
+          title={t("Clôturer la journée")}
+          description={t("Êtes-vous sûr de vouloir finaliser et archiver les données d'aujourd'hui ?")}
           onConfirm={() => closeDayMutation.mutate()}
-          okText="Oui, Clôturer"
-          cancelText="Annuler"
+          okText={t("Oui, Clôturer")}
+          cancelText={t("Annuler")}
         >
           <Button type="primary" danger icon={<SaveOutlined />} loading={closeDayMutation.isPending}>
-            Clôturer la journée
-          </Button>
+            {t("Clôturer la journée")}{' '}</Button>
         </Popconfirm>
       </div>
 
@@ -142,17 +146,17 @@ const Reports: React.FC = () => {
                 'Ce mois': [dayjs().startOf('month'), dayjs().endOf('month')],
               }}
             />
-            <Button icon={<DownloadOutlined />} onClick={handleExportCSV} disabled={reportData.length === 0}>CSV</Button>
-            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel} disabled={reportData.length === 0}>Excel</Button>
-            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} disabled={reportData.length === 0}>PDF</Button>
+            <Button icon={<DownloadOutlined />} onClick={handleExportCSV} disabled={reportData.length === 0}>{t("CSV")}</Button>
+            <Button icon={<FileExcelOutlined />} onClick={handleExportExcel} disabled={reportData.length === 0}>{t("Excel")}</Button>
+            <Button icon={<FilePdfOutlined />} onClick={handleExportPDF} disabled={reportData.length === 0}>{t("PDF")}</Button>
           </Space>
 
           <Row gutter={16}>
             <Col span={8}>
-              <Statistic title="Sessions Trouvées" value={reportData.length} loading={isLoading} />
+              <Statistic title={t("Sessions Trouvées")} value={reportData.length} loading={isLoading} />
             </Col>
             <Col span={8}>
-              <Statistic title="Revenu Filtré" value={totalFilteredRevenue} precision={2} suffix="DT" loading={isLoading} />
+              <Statistic title={t("Revenu Filtré")} value={totalFilteredRevenue} precision={2} suffix={t("DT")} loading={isLoading} />
             </Col>
           </Row>
         </Space>
@@ -164,14 +168,15 @@ const Reports: React.FC = () => {
         styles={{ body: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' } }}
       >
         <Text style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 12, flexShrink: 0 }}>
-          Archive des Journées Clôturées
-        </Text>
+          {t("Archive des Journées Clôturées")}{' '}</Text>
         <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
           <Table
             columns={columns}
             dataSource={closures}
             rowKey="id"
-            pagination={{ pageSize: 5, showTotal: (total: number) => `Total: ${total} journ\u00e9e${total > 1 ? 's' : ''}` }}
+            pagination={{ pageSize: 5, showTotal: total => total === 1
+              ? t('Total : 1 journée')
+              : t('Total : {{count}} journées', { count: total }) }}
             style={{ height: '100%' }}
 
           />

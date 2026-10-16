@@ -6,6 +6,10 @@ import type { SubscriptionInput, Subscription } from './types';
 import type { Customer } from '../customers/types';
 import dayjs from 'dayjs';
 import { isUuid } from '../../utils/uuid';
+import { useTranslation } from 'react-i18next';
+import { getNumberLocale } from '../../i18n';
+import { formatExpenseAmount } from '../expenses/types';
+import { translatePlanName } from '../plans/labels';
 
 interface SubscriptionFormValues {
   customer_id: string;
@@ -23,6 +27,11 @@ interface SubscriptionFormProps {
 }
 
 const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onSubmit, customers, initialValues, loading }) => {
+  const { t, i18n } = useTranslation();
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
+  const formatPlanPrice = (price: number) => i18n.resolvedLanguage === 'ar'
+    ? formatExpenseAmount(price, numberLocale)
+    : `${price.toFixed(3)} DT`;
   const [form] = Form.useForm<SubscriptionFormValues>();
   const selectedPlanId = Form.useWatch('plan_id', form);
 
@@ -56,7 +65,7 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
   const handleFinish = (values: SubscriptionFormValues) => {
     const plan = plans.find(p => p.id === values.plan_id);
     if (plansUnavailable || !plan || !isUuid(plan.id)) {
-      form.setFields([{ name: 'plan_id', errors: ['Veuillez sélectionner un plan enregistré dans la base de données'] }]);
+      form.setFields([{ name: 'plan_id', errors: [t('Veuillez sélectionner un plan enregistré dans la base de données')] }]);
       return;
     }
 
@@ -74,7 +83,7 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
 
   return (
     <Modal
-      title={initialValues ? "Modifier l'abonnement" : "Ajouter un nouvel abonnement"}
+      title={initialValues ? t("Modifier l'abonnement") : t("Ajouter un nouvel abonnement")}
       open={open}
       onCancel={onCancel}
       onOk={handleOk}
@@ -86,9 +95,9 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
         <Alert
           type="error"
           showIcon
-          title="Impossible de charger les plans"
+          title={t("Impossible de charger les plans")}
           description={plansError.message}
-          action={<Button onClick={() => void refetch()}>Réessayer</Button>}
+          action={<Button onClick={() => void refetch()}>{t("Réessayer")}</Button>}
           style={{ marginBottom: 16 }}
         />
       )}
@@ -96,20 +105,20 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
         <Alert
           type="warning"
           showIcon
-          title="Aucun plan disponible"
-          description="Créez un plan dans les paramètres avant d'ajouter un abonnement."
+          title={t("Aucun plan disponible")}
+          description={t("Créez un plan dans les paramètres avant d'ajouter un abonnement.")}
           style={{ marginBottom: 16 }}
         />
       )}
       <Form form={form} layout="vertical" onFinish={handleFinish}>
         <Form.Item
           name="customer_id"
-          label="Sélectionner un client"
-          rules={[{ required: true, message: 'Veuillez sélectionner un client' }]}
+          label={t("Sélectionner un client")}
+          rules={[{ required: true, message: t("Veuillez sélectionner un client") }]}
         >
           <Select
             showSearch
-            placeholder="Rechercher un client"
+            placeholder={t("Rechercher un client")}
             optionFilterProp="children"
             filterOption={(input, option) =>
               (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
@@ -120,34 +129,34 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
         </Form.Item>
         <Form.Item
           name="plan_id"
-          label="Plan d'abonnement"
-          rules={[{ required: true, message: 'Veuillez sélectionner un plan' }]}
+          label={t("Plan d'abonnement")}
+          rules={[{ required: true, message: t("Veuillez sélectionner un plan") }]}
         >
           <Select
-            placeholder="Sélectionner un plan"
+            placeholder={t("Sélectionner un plan")}
             loading={plansLoading}
             disabled={plansUnavailable}
             options={plans.map(p => ({
               value: p.id,
-              label: `${p.name} (${p.duration_days} jours - ${Number(p.price || 0).toFixed(3)} DT)`,
+              label: `${translatePlanName(p.name, t)} (${p.duration_days.toLocaleString(numberLocale)} ${t("jours")} - ${formatPlanPrice(Number(p.price || 0))})`,
             }))}
           />
         </Form.Item>
         {selectedPlan && (
           <div style={{ marginBottom: 16, padding: '10px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #f1f5f9' }}>
             <div style={{ fontSize: 13, color: '#64748b' }}>
-              Durée: <strong>{selectedPlan.duration_days} jours</strong> | Prix: <strong>{Number(selectedPlan.price || 0).toFixed(3)} DT</strong>
+              {t("Durée:")}{' '}<strong>{selectedPlan.duration_days.toLocaleString(numberLocale)} {t("jours")}</strong> {t("| Prix:")}{' '}<strong>{formatPlanPrice(Number(selectedPlan.price || 0))}</strong>
             </div>
           </div>
         )}
         <Form.Item
           name="start_date"
-          label="Date de début"
-          rules={[{ required: true, message: 'Veuillez sélectionner la date de début' }]}
+          label={t("Date de début")}
+          rules={[{ required: true, message: t("Veuillez sélectionner la date de début") }]}
         >
           <DatePicker style={{ width: '100%' }} />
         </Form.Item>
-        <button type="submit" style={{ display: 'none' }}>Submit</button>
+        <button type="submit" style={{ display: 'none' }}>{t("Submit")}</button>
       </Form>
     </Modal>
   );

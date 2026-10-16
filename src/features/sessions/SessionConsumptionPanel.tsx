@@ -9,6 +9,7 @@ import type { Product } from '../products/types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
 import { formatProductPrice } from '../../lib/productMoney';
+import { useTranslation } from 'react-i18next';
 
 const { Text } = Typography;
 
@@ -18,6 +19,7 @@ interface Props {
 }
 
 const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
   const { requireAdmin, isDemo } = usePermissions();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,7 +40,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
     mutationFn: (values: any) => addSessionProduct(session.id, values.product_id, values.quantity, values.total_price),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
-      message.success('Produit ajouté à la session');
+      message.success(t("Produit ajouté à la session"));
       setIsModalOpen(false);
       form.resetFields();
     },
@@ -49,7 +51,7 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
     mutationFn: removeSessionProduct,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['activeSessions'] });
-      message.success('Produit retiré');
+      message.success(t("Produit retiré"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -68,32 +70,32 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
 
   const columns = [
     {
-      title: 'Produit',
+      title: t("Produit"),
       dataIndex: ['products', 'name'],
       key: 'name',
       width: '45%',
     },
     {
-      title: 'Quantité',
+      title: t("Quantité"),
       dataIndex: 'quantity',
       key: 'quantity',
       width: '20%',
       align: 'center' as const,
     },
     {
-      title: 'Prix Total',
+      title: t("Prix Total"),
       dataIndex: 'total_price',
       key: 'total_price',
       width: '25%',
       align: 'right' as const,
       render: (val: number) => (
         <Text strong style={{ color: '#059669' }}>
-          {formatProductPrice(val)}
+          {formatProductPrice(val, i18n.resolvedLanguage)}
         </Text>
       ),
     },
     {
-      title: '',
+      title: t(""),
       key: 'action',
       width: '10%',
       align: 'center' as const,
@@ -102,10 +104,10 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
           <AuthButton type="text" danger icon={<DeleteOutlined />} />
         ) : (
           <Popconfirm
-            title="Retirer le produit"
+            title={t("Retirer le produit")}
             onConfirm={() => removeMutation.mutate(record.id)}
-            okText="Oui"
-            cancelText="Non"
+            okText={t("Oui")}
+            cancelText={t("Non")}
           >
             <AuthButton type="text" danger icon={<DeleteOutlined />} loading={removeMutation.isPending && removeMutation.variables === record.id} />
           </Popconfirm>
@@ -134,14 +136,12 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         borderBottom: '1px solid #f0f0f0'
       }}>
         <Text strong style={{ fontSize: '15px', color: '#0f172a' }}>
-          Produits Consommés (Total : {formatProductPrice(totalConsumption)})
-        </Text>
+          {t("Produits Consommés (Total :")}{' '}{formatProductPrice(totalConsumption, i18n.resolvedLanguage)}{t(")")}{' '}</Text>
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
           if (!requireAdmin()) return;
           setIsModalOpen(true);
         }}>
-          Ajouter un produit
-        </AuthButton>
+          {t("Ajouter un produit")}{' '}</AuthButton>
       </div>
 
       <Table
@@ -152,13 +152,15 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         pagination={{ 
           defaultPageSize: 5, 
           showSizeChanger: false,
-          showTotal: (total) => `Total: ${total} produit${total > 1 ? 's' : ''}`,
+          showTotal: total => total === 1
+            ? t('Total : 1 produit')
+            : t('Total : {{count}} produits', { count: total }),
           style: { marginTop: '16px' }
         }}
       />
 
       <Modal
-        title="Ajouter un produit à la session"
+        title={t("Ajouter un produit à la session")}
         open={isModalOpen}
         onCancel={() => {
           setIsModalOpen(false);
@@ -179,12 +181,12 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
         >
           <Form.Item
             name="product_id"
-            label="Sélectionner un produit"
-            rules={[{ required: true, message: 'Veuillez sélectionner un produit' }]}
+            label={t("Sélectionner un produit")}
+            rules={[{ required: true, message: t("Veuillez sélectionner un produit") }]}
           >
             <Select
               showSearch
-              placeholder="Rechercher un produit"
+              placeholder={t("Rechercher un produit")}
               optionFilterProp="children"
               size="large"
               filterOption={(input, option) =>
@@ -192,15 +194,15 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
               }
               options={products.map((p: Product) => ({ 
                 value: p.id, 
-                label: `${p.name} - ${formatProductPrice(p.price)}`
+                label: `${p.name} - ${formatProductPrice(p.price, i18n.resolvedLanguage)}`
               }))}
             />
           </Form.Item>
           
           <Form.Item
             name="quantity"
-            label="Quantité"
-            rules={[{ required: true, message: 'Veuillez spécifier la quantité' }]}
+            label={t("Quantité")}
+            rules={[{ required: true, message: t("Veuillez spécifier la quantité") }]}
           >
             <InputNumber min={1} precision={0} style={{ width: '100%' }} size="large" />
           </Form.Item>
@@ -214,11 +216,11 @@ const SessionConsumptionPanel: React.FC<Props> = ({ session, onClose }) => {
               textAlign: 'right'
             }}>
               <Text strong style={{ fontSize: '16px', color: '#0f172a' }}>
-                Total: {formatProductPrice(selectedProduct.price * quantity)}
+                {t("Total:")}{' '}{formatProductPrice(selectedProduct.price * quantity, i18n.resolvedLanguage)}
               </Text>
             </div>
           )}
-          <button type="submit" style={{ display: 'none' }}>Submit</button>
+          <button type="submit" style={{ display: 'none' }}>{t("Submit")}</button>
         </Form>
       </Modal>
     </div>

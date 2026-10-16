@@ -3,6 +3,7 @@ import { AutoComplete, DatePicker, Form, Input, InputNumber, Modal } from 'antd'
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
 import type { Expense, ExpenseInput } from './types';
+import { useTranslation } from 'react-i18next';
 
 type FormValues = Omit<ExpenseInput, 'expense_date'> & { expense_date: Dayjs };
 
@@ -18,6 +19,7 @@ interface ExpenseFormProps {
 export default function ExpenseForm({
   open, onCancel, onSubmit, initialValues, categories, loading,
 }: ExpenseFormProps) {
+  const { t } = useTranslation();
   const [form] = Form.useForm<FormValues>();
 
   useEffect(() => {
@@ -38,12 +40,12 @@ export default function ExpenseForm({
 
   return (
     <Modal
-      title={initialValues ? 'Modifier le frais' : 'Ajouter un nouveau frais'}
+      title={initialValues ? t("Modifier le frais") : t("Ajouter un nouveau frais")}
       open={open}
       onCancel={onCancel}
       onOk={() => form.submit()}
-      okText={initialValues ? 'Enregistrer' : 'Ajouter'}
-      cancelText="Annuler"
+      okText={initialValues ? t("Enregistrer") : t("Ajouter")}
+      cancelText={t("Annuler")}
       confirmLoading={loading}
       cancelButtonProps={{ disabled: loading }}
       closable={!loading}
@@ -51,31 +53,31 @@ export default function ExpenseForm({
       keyboard={!loading}
     >
       <Form form={form} layout="vertical" onFinish={finish} disabled={loading}>
-        <Form.Item name="name" label="Nom du frais"
-          rules={[{ required: true, whitespace: true, message: 'Veuillez entrer le nom du frais' }]}>
-          <Input maxLength={200} placeholder="Facture internet, réparation, etc." />
+        <Form.Item name="name" label={t("Nom du frais")}
+          rules={[{ required: true, whitespace: true, message: t("Veuillez entrer le nom du frais") }]}>
+          <Input maxLength={200} placeholder={t("Facture internet, réparation, etc.")} />
         </Form.Item>
-        <Form.Item name="category" label="Catégorie"
-          rules={[{ required: true, whitespace: true, message: 'Veuillez entrer une catégorie' },
-            { max: 200, message: 'La catégorie ne peut pas dépasser 200 caractères' }]}>
+        <Form.Item name="category" label={t("Catégorie")}
+          rules={[{ required: true, whitespace: true, message: t("Veuillez entrer une catégorie") },
+            { max: 200, message: t("La catégorie ne peut pas dépasser 200 caractères") }]}>
           <AutoComplete
-            options={categories.map(value => ({ value }))}
+            options={categories.map(value => ({ value, label: t(value) }))}
             filterOption={false}
             allowClear
-            placeholder="Internet, Électricité, Eau ou votre propre catégorie"
+            placeholder={t("Internet, Électricité, Eau ou votre propre catégorie")}
           />
         </Form.Item>
-        <Form.Item name="amount" label="Montant (DT)"
-          rules={[{ required: true, message: 'Veuillez entrer le montant' },
-            { type: 'number', min: 0.001, max: 1_000_000_000, message: 'Le montant doit être compris entre 0,001 et 1 000 000 000 DT' }]}>
+        <Form.Item name="amount" label={t("Montant (DT)")}
+          rules={[{ required: true, message: t("Veuillez entrer le montant") },
+            { type: 'number', min: 0.001, max: 1_000_000_000, message: t("Le montant doit être compris entre 0,001 et 1 000 000 000 DT") }]}>
           <InputNumber min={0.001} max={1_000_000_000} step={0.001} precision={3} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="expense_date" label="Date du frais"
-          rules={[{ required: true, message: 'Veuillez choisir la date du frais' }]}>
+        <Form.Item name="expense_date" label={t("Date du frais")}
+          rules={[{ required: true, message: t("Veuillez choisir la date du frais") }]}>
           <DatePicker format="DD/MM/YYYY" style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="notes" label="Notes">
-          <Input.TextArea rows={3} maxLength={10000} placeholder="Notes optionnelles..." />
+        <Form.Item name="notes" label={t("Notes")}>
+          <Input.TextArea rows={3} maxLength={10000} placeholder={t("Notes optionnelles...")} />
         </Form.Item>
       </Form>
     </Modal>

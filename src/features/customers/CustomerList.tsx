@@ -7,8 +7,10 @@ import CustomerForm from './CustomerForm';
 import type { Customer, CustomerInput } from './types';
 import { AuthButton } from '../../components/AuthButton';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useTranslation } from 'react-i18next';
 
 const CustomerList: React.FC = () => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDemo, requireAdmin } = usePermissions();
   const [searchText, setSearchText] = useState('');
@@ -26,7 +28,7 @@ const CustomerList: React.FC = () => {
     mutationFn: createCustomer,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      message.success('Visiteur créé avec succès');
+      message.success(t("Visiteur créé avec succès"));
       setIsModalOpen(false);
     },
     onError: (error: Error) => message.error(error.message),
@@ -36,7 +38,7 @@ const CustomerList: React.FC = () => {
     mutationFn: ({ id, ...data }: { id: string } & CustomerInput) => updateCustomer(id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      message.success('Visiteur mis à jour avec succès');
+      message.success(t("Visiteur mis à jour avec succès"));
       setIsModalOpen(false);
     },
     onError: (error: Error) => message.error(error.message),
@@ -46,7 +48,7 @@ const CustomerList: React.FC = () => {
     mutationFn: deleteCustomer,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customers'] });
-      message.success('Visiteur supprimé avec succès');
+      message.success(t("Visiteur supprimé avec succès"));
     },
     onError: (error: Error) => message.error(error.message),
   });
@@ -89,22 +91,22 @@ const CustomerList: React.FC = () => {
   // Table Columns
   const columns = [
     {
-      title: 'Nom Complet',
+      title: t("Nom Complet"),
       dataIndex: 'full_name',
       key: 'full_name',
     },
     {
-      title: 'Email',
+      title: t("Email"),
       dataIndex: 'email',
       key: 'email',
     },
     {
-      title: 'Téléphone',
+      title: t("Téléphone"),
       dataIndex: 'phone',
       key: 'phone',
     },
     {
-      title: 'Notes',
+      title: t("Notes"),
       dataIndex: 'notes',
       key: 'notes',
       ellipsis: true,
@@ -115,7 +117,7 @@ const CustomerList: React.FC = () => {
       ),
     },
     {
-      title: 'Actions',
+      title: t("Actions"),
       key: 'actions',
       render: (_: any, record: Customer) => (
         <Space size="middle">
@@ -128,11 +130,11 @@ const CustomerList: React.FC = () => {
             <AuthButton type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
-              title="Supprimer le visiteur"
-              description="Êtes-vous sûr de vouloir supprimer ce visiteur ?"
+              title={t("Supprimer le visiteur")}
+              description={t("Êtes-vous sûr de vouloir supprimer ce visiteur ?")}
               onConfirm={() => handleDelete(record.id)}
-              okText="Oui"
-              cancelText="Non"
+              okText={t("Oui")}
+              cancelText={t("Non")}
             >
               <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
@@ -146,7 +148,7 @@ const CustomerList: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingTop: 20 }}>
         <Input
-          placeholder="Rechercher des visiteurs..."
+          placeholder={t("Rechercher des visiteurs...")}
           prefix={<SearchOutlined />}
           value={searchText}
           onChange={e => setSearchText(e.target.value)}
@@ -154,8 +156,7 @@ const CustomerList: React.FC = () => {
           allowClear
         />
         <AuthButton type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          Nouveau visiteur
-        </AuthButton>
+          {t("Nouveau visiteur")}{' '}</AuthButton>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -164,7 +165,9 @@ const CustomerList: React.FC = () => {
           dataSource={filteredCustomers}
           rowKey="id"
           loading={isLoading}
-          pagination={{ defaultPageSize: 5, showTotal: (total) => `Total: ${total} visiteur${total > 1 ? 's' : ''}` }}
+          pagination={{ defaultPageSize: 5, showTotal: total => total === 1
+            ? t('Total : 1 visiteur')
+            : t('Total : {{count}} visiteurs', { count: total }) }}
           style={{ height: '100%' }}
 
         />

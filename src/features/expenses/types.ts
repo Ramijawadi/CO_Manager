@@ -16,5 +16,7 @@ export const expenseCategories = [
   'Internet', 'Électricité', 'Eau', 'Loyer', 'Entretien', 'Fournitures', 'Autres',
 ];
 
-export const formatExpenseAmount = (amount: number): string =>
-  `${amount.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT`;
+export const formatExpenseAmount = (amount: number, locale = 'fr-TN'): string => {
+  const currency = locale.startsWith('ar') ? 'د.ت' : 'DT';
+  return `${amount.toLocaleString(locale, { minimumFractionDigits: 3, maximumFractionDigits: 3 })} ${currency}`;
+};

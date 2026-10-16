@@ -3,8 +3,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider } from 'antd';
 import frFR from 'antd/locale/fr_FR';
+import arEG from 'antd/locale/ar_EG';
 import dayjs from 'dayjs';
 import 'dayjs/locale/fr';
+import 'dayjs/locale/ar';
+import { useLayoutEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppLayout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/Dashboard';
@@ -23,13 +27,24 @@ dayjs.locale('fr');
 const queryClient = new QueryClient();
 
 const App: React.FC = () => {
+  const { i18n } = useTranslation();
+  const isArabic = i18n.resolvedLanguage === 'ar';
+
+  useLayoutEffect(() => {
+    const language = isArabic ? 'ar' : 'fr';
+    document.documentElement.lang = language;
+    document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+    dayjs.locale(language);
+  }, [isArabic]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ConfigProvider
-        locale={frFR}
+        locale={isArabic ? arEG : frFR}
+        direction={isArabic ? 'rtl' : 'ltr'}
         theme={{
           token: {
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            fontFamily: isArabic ? "'Tahoma', Arial, sans-serif" : "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
             colorPrimary: '#4f46e5',
             colorSuccess: '#10b981',
             colorWarning: '#f59e0b',

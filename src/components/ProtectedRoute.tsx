@@ -6,6 +6,7 @@ import { Alert, Button } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import lottie from 'lottie-web';
 import animationData from '../assets/loading-circles.json';
+import { useTranslation } from 'react-i18next';
 
 const LottieLoader: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,6 +28,7 @@ const LottieLoader: React.FC = () => {
 };
 
 const ProtectedRoute: React.FC = () => {
+  const { t } = useTranslation();
   const { session, setSession, signOut } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -66,12 +68,12 @@ const ProtectedRoute: React.FC = () => {
   }
 
   if (error) {
-    return <Alert type="error" showIcon title="Connexion indisponible" description={error}
+    return <Alert type="error" showIcon title={t("Connexion indisponible")} description={error}
       action={<Button onClick={() => {
         setLoading(true);
         setError(null);
         setAttempt(value => value + 1);
-      }}>Réessayer</Button>} />;
+      }}>{t("Réessayer")}</Button>} />;
   }
 
   if (!session) {

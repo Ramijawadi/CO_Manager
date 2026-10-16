@@ -53,6 +53,7 @@ test('millime conversion and product format preserve three-digit fractions and r
   }
   assert.equal(money.toProductMillimes(1.001 * 3), 3003);
   assert.equal(money.formatProductPrice(1.9999), '2dt');
+  assert.match(money.formatProductPrice(1.5, 'ar'), /د\.ت$/);
   const converted = money.sessionInDinars(session);
   assert.equal(converted.time_cost, 5);
   assert.equal(converted.session_products[0].total_price, 3);
@@ -93,6 +94,7 @@ test('product table renders a stored 1500-millime price as 1dt.500', async () =>
     '../../components/AuthButton': { AuthButton: 'AuthButton' },
     '../../hooks/usePermissions': { usePermissions: () => ({ requireAdmin: () => true, isDemo: false }) },
     '../../lib/productMoney': money,
+    'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { resolvedLanguage: 'fr' } }) },
   });
   const findTable = node => {
     if (!node || typeof node !== 'object') return undefined;

@@ -173,6 +173,7 @@ test('expense frontend API converts DT to integer millimes and preserves partial
   assert.equal(requests.at(-1).method, 'DELETE');
   const { formatExpenseAmount } = loadModule('features/expenses/types.ts');
   assert.match(formatExpenseAmount(1.001), /1,001 DT/);
+  assert.match(formatExpenseAmount(1.001, 'ar-TN'), /د\.ت/);
 });
 
 test('editing a category always offers the complete list regardless of the saved value', () => {
@@ -190,6 +191,7 @@ test('editing a category always offers the complete list regardless of the saved
     },
     antd: { AutoComplete: 'AutoComplete', Form, Input: { TextArea: 'TextArea' },
       InputNumber: 'InputNumber', DatePicker: 'DatePicker', Modal: 'Modal' },
+    'react-i18next': { useTranslation: () => ({ t: key => key }) },
     dayjs: { default: value => ({ format: () => value }), __esModule: true },
   });
   const findCategory = node => {
@@ -209,6 +211,8 @@ test('editing a category always offers the complete list regardless of the saved
   assert.equal(category.allowClear, true);
   assert.equal(category.filterOption, false);
   assert.deepEqual(category.options, [
-    { value: 'Internet' }, { value: 'Eau' }, { value: 'Électricité' },
+    { value: 'Internet', label: 'Internet' },
+    { value: 'Eau', label: 'Eau' },
+    { value: 'Électricité', label: 'Électricité' },
   ]);
 });

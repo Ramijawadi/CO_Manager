@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
-  Alert, Button, Card, Col, Drawer, Empty, Input, Popconfirm, Row, Select,
-  Space, Statistic, Table, Tag, Typography, message,
+  Alert, Button, Card, Col, Drawer, Empty, Grid, Input, Popconfirm, Row, Select,
+  Space, Statistic, Table, Tag, Tooltip, Typography, message,
 } from 'antd';
 import type { TableColumnsType } from 'antd';
 import {
@@ -18,6 +18,9 @@ import {
 } from './api';
 import { RentalForm, RoomForm, UtilityPaymentForm } from './RoomManagementForms';
 import type { Room, RoomRental, RoomRentalInput, UtilityPayment, UtilityPaymentInput } from './types';
+import { useTranslation } from 'react-i18next';
+import { getNumberLocale } from '../../i18n';
+import { formatExpenseAmount } from '../expenses/types';
 
 const EMPTY_ROOMS: Room[] = [];
 const EMPTY_RENTALS: RoomRental[] = [];
@@ -25,12 +28,13 @@ const EMPTY_PAYMENTS: UtilityPayment[] = [];
 
 type OccupancyFilter = 'all' | 'occupied' | 'available' | 'upcoming' | 'unpaid-water' | 'unpaid-electricity';
 
-const money = (value: number | null | undefined) => value === null || value === undefined
-  ? '—' : `${value.toLocaleString('fr-TN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} DT`;
 const dateLabel = (value?: string | null) => value ? dayjs(value).format('DD/MM/YYYY') : '—';
 const isActive = (rental: RoomRental, today: string) => !rental.actual_departure_date && rental.entry_date <= today;
 
 export default function RoomManagement() {
+  const { t, i18n } = useTranslation();
+  const screens = Grid.useBreakpoint();
+  const numberLocale = getNumberLocale(i18n.resolvedLanguage);
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
   const { isDemo } = usePermissions();
@@ -63,7 +67,7 @@ export default function RoomManagement() {
   };
   const handleMutationSuccess = (label: string) => {
     refresh();
-    void messageApi.success(label);
+    void messageApi.success(t(label));
   };
   const createRoomMutation = useMutation({
     mutationFn: createRoom, onSuccess: () => { handleMutationSuccess('Chambre ajoutée.'); setOpenRoomForm(false); },
@@ -173,15 +177,16 @@ export default function RoomManagement() {
   };
   const submitPayment = (values: UtilityPaymentInput) => {
     if (isDemo) return;
+    const { rental_id, ...data } = values;
     if (editingPayment) {
-      updatePaymentMutation.mutate({ id: editingPayment.id, data: values });
+      updatePaymentMutation.mutate({ id: editingPayment.id, data });
       return;
     }
     const duplicate = payments.find(payment =>
-      payment.rental_id === values.rental_id && payment.type === values.type &&
+      payment.rental_id === rental_id && payment.type === values.type &&
       payment.billing_period === values.billing_period);
     if (duplicate) {
-      void messageApi.error('Une facture existe déjà pour cette période. Modifiez la facture existante.');
+      void messageApi.error(t('Une facture existe déjà pour cette période. Modifiez la facture existante.'));
       return;
     }
     createPaymentMutation.mutate(values);
@@ -189,66 +194,84 @@ export default function RoomManagement() {
 
   const columns: TableColumnsType<(typeof roomRows)[number]> = [
     {
-      title: 'Chambre', dataIndex: 'room_number',
+      title: t("Chambre"), dataIndex: 'room_number', width: 160,
       sorter: (left, right) => left.room_number.localeCompare(right.room_number, 'fr', { numeric: true }),
-      render: (_: string, room) => <Space direction="vertical" size={0}>
-        <Typography.Text strong>{room.name}</Typography.Text>
-        <Typography.Text type="secondary">{room.room_number}</Typography.Text>
-      </Space>,
+      render: (_: string, room) => <div className="rooms-table-cell">
+        <Typography.Text strong><bdi>{room.name}</bdi></Typography.Text>
+        {room.name !== room.room_number &&
+          <Typography.Text type="secondary"><bdi>{room.room_number}</bdi></Typography.Text>}
+      </div>,
     },
     {
-      title: 'État', dataIndex: 'occupied',
-      filters: [{ text: 'Occupée', value: true }, { text: 'Disponible', value: false }],
+      title: t("État"), dataIndex: 'occupied', width: 155,
+      filters: [{ text: t('Occupée'), value: true }, { text: t('Disponible'), value: false }],
       onFilter: (value, room) => room.occupied === value,
       render: (_: boolean, room) => room.occupied
-        ? <Space size={4}><Tag color="blue">Occupée</Tag>
-          {room.leavingSoon && <Tag color="orange">Départ bientôt</Tag>}</Space>
-        : room.next ? <Tag color="purple">Entrée prévue</Tag> : <Tag color="green">Disponible</Tag>,
+        ? <div className="rooms-table-cell"><Tag color="blue">{t("Occupée")}</Tag>
+          {room.leavingSoon && <Tag color="orange">{t("Départ bientôt")}</Tag>}</div>
+        : room.next ? <Tag color="purple">{t("Entrée prévue")}</Tag> : <Tag color="green">{t("Disponible")}</Tag>,
     },
     {
-      title: 'Locataire', dataIndex: 'current', render: (_: RoomRental | undefined, room) => room.displayedRental
-        ? <Space direction="vertical" size={0}>
-          <span>{room.displayedRental.tenant_name}</span>
-          <Typography.Text type="secondary">{room.displayedRental.phone || 'Téléphone non renseigné'}</Typography.Text>
-        </Space> : '—',
+      title: t("Locataire"), dataIndex: 'current', width: 180,
+      render: (_: RoomRental | undefined, room) => room.displayedRental
+        ? <div className="rooms-table-cell">
+          <Typography.Text><bdi>{room.displayedRental.tenant_name}</bdi></Typography.Text>
+          <Typography.Text type="secondary">
+            {room.displayedRental.phone
+              ? <bdi dir="ltr">{room.displayedRental.phone}</bdi> : t('Téléphone non renseigné')}
+          </Typography.Text>
+        </div> : <Typography.Text type="secondary">—</Typography.Text>,
       sorter: (left, right) => (left.displayedRental?.tenant_name ?? '').localeCompare(right.displayedRental?.tenant_name ?? '', 'fr'),
     },
     {
-      title: "Entrée", dataIndex: 'entry_date',
-      render: (_: unknown, room) => dateLabel(room.displayedRental?.entry_date),
+      title: t("Entrée"), dataIndex: 'entry_date', width: 125,
+      render: (_: unknown, room) => <bdi dir="ltr">{dateLabel(room.displayedRental?.entry_date)}</bdi>,
       sorter: (left, right) => (left.displayedRental?.entry_date ?? '').localeCompare(right.displayedRental?.entry_date ?? ''),
     },
     {
-      title: 'Sortie prévue', dataIndex: 'expected_departure_date',
-      render: (_: unknown, room) => dateLabel(room.displayedRental?.expected_departure_date),
+      title: t("Sortie prévue"), dataIndex: 'expected_departure_date', width: 145,
+      render: (_: unknown, room) => <bdi dir="ltr">{dateLabel(room.displayedRental?.expected_departure_date)}</bdi>,
       sorter: (left, right) => (left.displayedRental?.expected_departure_date ?? '')
         .localeCompare(right.displayedRental?.expected_departure_date ?? ''),
     },
     {
-      title: 'Eau', dataIndex: 'water', render: (payment: UtilityPayment | undefined) => payment
-        ? <Tag color={payment.status === 'paid' ? 'green' : 'red'}>
-          {payment.status === 'paid' ? 'Payée' : 'Non payée'} · {payment.billing_period}
-        </Tag> : <Tag>À renseigner</Tag>,
+      title: t("Eau"), dataIndex: 'water', width: 130,
+      render: (payment: UtilityPayment | undefined) => payment
+        ? <div className="rooms-table-cell">
+          <Tag color={payment.status === 'paid' ? 'green' : 'red'}>
+            {payment.status === 'paid' ? t("Payée") : t("Non payée")}
+          </Tag>
+          <Typography.Text type="secondary"><bdi dir="ltr">{payment.billing_period}</bdi></Typography.Text>
+        </div> : <Tag>{t("À renseigner")}</Tag>,
     },
     {
-      title: 'Électricité', dataIndex: 'electricity', render: (payment: UtilityPayment | undefined) => payment
-        ? <Tag color={payment.status === 'paid' ? 'green' : 'red'}>
-          {payment.status === 'paid' ? 'Payée' : 'Non payée'} · {payment.billing_period}
-        </Tag> : <Tag>À renseigner</Tag>,
+      title: t("Électricité"), dataIndex: 'electricity', width: 130,
+      render: (payment: UtilityPayment | undefined) => payment
+        ? <div className="rooms-table-cell">
+          <Tag color={payment.status === 'paid' ? 'green' : 'red'}>
+            {payment.status === 'paid' ? t("Payée") : t("Non payée")}
+          </Tag>
+          <Typography.Text type="secondary"><bdi dir="ltr">{payment.billing_period}</bdi></Typography.Text>
+        </div> : <Tag>{t("À renseigner")}</Tag>,
     },
     {
-      title: 'Actions', key: 'actions', fixed: 'right', width: 220,
-      render: (_: unknown, room) => <Space wrap>
-        <Button size="small" onClick={() => setDetailRoom(room)}>Détails</Button>
-        <AuthButton size="small" icon={<EditOutlined />} aria-label={`Modifier ${room.room_number}`}
-          onClick={() => openRoom(room)} />
-        <AuthButton size="small" icon={<PlusOutlined />} disabled={Boolean(room.current)}
-          onClick={() => openRental(room)}>Location</AuthButton>
-        {!room.current && <Popconfirm title="Archiver la chambre"
-          description="La chambre sera masquée, mais son historique de locations et de factures sera conservé."
+      title: t("Actions"), key: 'actions', fixed: screens.md ? 'right' : undefined, width: 180,
+      render: (_: unknown, room) => <Space size={4} className="rooms-table-actions">
+        <Button size="small" onClick={() => setDetailRoom(room)}>{t("Détails")}</Button>
+        <Tooltip title={t("Modifier la chambre")}>
+          <AuthButton size="small" icon={<EditOutlined />} aria-label={t("Modifier la chambre")}
+            onClick={() => openRoom(room)} />
+        </Tooltip>
+        <Tooltip title={t("Nouvelle location")}>
+          <AuthButton size="small" icon={<PlusOutlined />} disabled={Boolean(room.current)}
+            aria-label={t("Nouvelle location")} onClick={() => openRental(room)} />
+        </Tooltip>
+        {!room.current && <Popconfirm title={t("Archiver la chambre")}
+          description={t("La chambre sera masquée, mais son historique de locations et de factures sera conservé.")}
           onConfirm={() => archiveRoomMutation.mutate(room.id)}
-          okText="Archiver" cancelText="Annuler">
-          <AuthButton size="small" danger icon={<DeleteOutlined />} aria-label={`Archiver ${room.room_number}`} />
+          okText={t("Archiver")} cancelText={t("Annuler")}>
+          <AuthButton size="small" danger icon={<DeleteOutlined />} aria-label={t("Archiver la chambre")}
+            title={t("Archiver la chambre")} />
         </Popconfirm>}
       </Space>,
     },
@@ -268,99 +291,98 @@ export default function RoomManagement() {
       {contextHolder}
       <div style={{ marginBottom: 16 }}>
         <Typography.Text style={{ fontSize: 15, color: '#64748b' }}>
-          Gérez vos chambres, locations et factures d’eau et d’électricité.
-        </Typography.Text>
+          {t("Gérez vos chambres, locations et factures d’eau et d’électricité.")}{' '}</Typography.Text>
       </div>
-      {allError && <Alert type="error" showIcon title="Impossible de charger la gestion des chambres"
+      {allError && <Alert type="error" showIcon title={t("Impossible de charger la gestion des chambres")}
         description={allError.message} action={<Button onClick={() => {
           void Promise.all([roomsQuery.refetch(), rentalsQuery.refetch(), paymentsQuery.refetch()]);
-        }}>Réessayer</Button>} style={{ marginBottom: 16 }} />}
+        }}>{t("Réessayer")}</Button>} style={{ marginBottom: 16 }} />}
       <Row gutter={[12, 12]} style={{ marginBottom: 16 }}>
-        <Col xs={12} md={6}><Card><Statistic title="Chambres" value={rooms.length} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Occupées" value={roomRows.filter(room => room.occupied).length} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Disponibles" value={roomRows.filter(room => !room.occupied && !room.next).length} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Locataires actifs" value={activeRentalCount} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Départs sous 30 jours" value={upcomingDepartures} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Factures d’eau impayées" value={unpaidWater} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Factures d’électricité impayées" value={unpaidElectricity} loading={loading} /></Card></Col>
-        <Col xs={12} md={6}><Card><Statistic title="Reste à payer" value={money(outstanding)} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Chambres")} value={rooms.length} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Occupées")} value={roomRows.filter(room => room.occupied).length} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Disponibles")} value={roomRows.filter(room => !room.occupied && !room.next).length} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Locataires actifs")} value={activeRentalCount} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Départs sous 30 jours")} value={upcomingDepartures} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Factures d’eau impayées")} value={unpaidWater} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Factures d’électricité impayées")} value={unpaidElectricity} loading={loading} /></Card></Col>
+        <Col xs={12} md={6}><Card><Statistic title={t("Reste à payer")} value={formatExpenseAmount(outstanding, numberLocale)} loading={loading} /></Card></Col>
       </Row>
 
-      <Card variant="borderless" style={{ border: '1px solid #f1f5f9' }}
-        title={<Space><HomeOutlined /><span>Parc de chambres</span></Space>}
+      <Card className="rooms-overview" variant="borderless" style={{ border: '1px solid #f1f5f9' }}
+        title={<Space><HomeOutlined /><span>{t("Parc de chambres")}</span></Space>}
         extra={<AuthButton type="primary" icon={<PlusOutlined />} onClick={() => openRoom()}>
-          Ajouter une chambre
-        </AuthButton>}>
-        <Space wrap style={{ width: '100%', marginBottom: 16 }}>
-          <Input placeholder="Chambre, locataire ou téléphone" prefix={<SearchOutlined />}
-            aria-label="Rechercher une chambre, un locataire ou un téléphone"
-            value={search} onChange={event => setSearch(event.target.value)} allowClear style={{ width: 300 }} />
-          <Select aria-label="Filtrer les chambres" value={filter} onChange={setFilter} style={{ width: 240 }}
+          {t("Ajouter une chambre")}{' '}</AuthButton>}>
+        <div className="rooms-table-toolbar">
+          <Input placeholder={t("Chambre, locataire ou téléphone")} prefix={<SearchOutlined />}
+            aria-label={t("Rechercher une chambre, un locataire ou un téléphone")}
+            value={search} onChange={event => setSearch(event.target.value)} allowClear className="rooms-table-search" />
+          <Select aria-label={t("Filtrer les chambres")} value={filter} onChange={setFilter} className="rooms-table-filter"
             options={[
-              { label: 'Tous les états', value: 'all' }, { label: 'Occupées', value: 'occupied' },
-              { label: 'Disponibles', value: 'available' }, { label: 'Départ sous 30 jours', value: 'upcoming' },
-              { label: 'Eau impayée', value: 'unpaid-water' }, { label: 'Électricité impayée', value: 'unpaid-electricity' },
+              { label: t("Tous les états"), value: 'all' }, { label: t("Occupées"), value: 'occupied' },
+              { label: t("Disponibles"), value: 'available' }, { label: t("Départ sous 30 jours"), value: 'upcoming' },
+              { label: t("Eau impayée"), value: 'unpaid-water' }, { label: t("Électricité impayée"), value: 'unpaid-electricity' },
             ]} />
-          {filter !== 'all' || search ? <Button onClick={() => { setFilter('all'); setSearch(''); }}>Réinitialiser</Button> : null}
-        </Space>
-        <Table columns={columns} dataSource={filteredRooms} rowKey="id" loading={loading}
-          scroll={{ x: 1200 }} pagination={{ pageSize: 14, showSizeChanger: true,
-            showTotal: count => `Total : ${count} chambre${count > 1 ? 's' : ''}` }}
+          {filter !== 'all' || search ? <Button onClick={() => { setFilter('all'); setSearch(''); }}>{t("Réinitialiser")}</Button> : null}
+        </div>
+        <Table className="rooms-table" columns={columns} dataSource={filteredRooms} rowKey="id" loading={loading}
+          tableLayout="fixed" scroll={{ x: 1205 }} pagination={{ pageSize: 14, showSizeChanger: true,
+            showTotal: count => t('Total : {{count}} chambres', { count }) }}
           locale={{ emptyText: <Empty description={search || filter !== 'all'
-            ? 'Aucune chambre ne correspond aux filtres.' : 'Aucune chambre enregistrée.'} /> }} />
+            ? t("Aucune chambre ne correspond aux filtres.") : t("Aucune chambre enregistrée.")} /> }} />
       </Card>
 
-      <Drawer title={detailRoom ? `Détails — ${detailRoom.name}` : 'Détails de la chambre'}
+      <Drawer title={detailRoom ? t('Détails — {{name}}', { name: detailRoom.name }) : t("Détails de la chambre")}
         open={Boolean(detailRoom)} onClose={() => setDetailRoom(undefined)} width={Math.min(850, window.innerWidth - 24)}>
         {detailRoom && <>
           <Space style={{ marginBottom: 16 }}>
             <Typography.Text type="secondary">{detailRoom.room_number}</Typography.Text>
             <AuthButton type="primary" icon={<PlusOutlined />} disabled={isDemo}
-              onClick={() => openRental(detailRoom)}>Nouvelle location</AuthButton>
+              onClick={() => openRental(detailRoom)}>{t("Nouvelle location")}</AuthButton>
           </Space>
-          <Typography.Title level={5}>Historique des locations</Typography.Title>
+          <Typography.Title level={5}>{t("Historique des locations")}</Typography.Title>
           <Table<RoomRental> size="small" rowKey="id" dataSource={roomRentals} pagination={false}
             scroll={{ x: 650 }} columns={[
-              { title: 'Locataire', dataIndex: 'tenant_name' },
-              { title: 'Téléphone', dataIndex: 'phone', render: value => value || '—' },
-              { title: 'Entrée', dataIndex: 'entry_date', render: dateLabel },
-              { title: 'Sortie prévue', dataIndex: 'expected_departure_date', render: dateLabel },
-              { title: 'Sortie réelle', dataIndex: 'actual_departure_date', render: dateLabel },
-              { title: 'Actions', key: 'actions', render: (_: unknown, rental) => <Space>
-                <AuthButton type="text" icon={<EditOutlined />} aria-label="Modifier la location"
+              { title: t("Locataire"), dataIndex: 'tenant_name' },
+              { title: t("Téléphone"), dataIndex: 'phone', render: value => value || '—' },
+              { title: t("Entrée"), dataIndex: 'entry_date', render: dateLabel },
+              { title: t("Sortie prévue"), dataIndex: 'expected_departure_date', render: dateLabel },
+              { title: t("Sortie réelle"), dataIndex: 'actual_departure_date', render: dateLabel },
+              { title: t("Actions"), key: 'actions', render: (_: unknown, rental) => <Space>
+                <AuthButton type="text" icon={<EditOutlined />} aria-label={t("Modifier la location")}
                   onClick={() => openRental(detailRoom, rental)} />
-                {!isActive(rental, today) && <Popconfirm title="Archiver la location"
-                  description="La location sera archivée; les factures liées seront conservées."
+                {!isActive(rental, today) && <Popconfirm title={t("Archiver la location")}
+                  description={t("La location sera archivée; les factures liées seront conservées.")}
                   onConfirm={() => archiveRentalMutation.mutate(rental.id)}
-                  okText="Archiver" cancelText="Annuler">
-                  <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label="Archiver la location" />
+                  okText={t("Archiver")} cancelText={t("Annuler")}>
+                  <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label={t("Archiver la location")} />
                 </Popconfirm>}
               </Space> },
             ]} />
           <Space style={{ width: '100%', justifyContent: 'space-between', margin: '24px 0 12px' }}>
-            <Typography.Title level={5} style={{ margin: 0 }}>Historique des factures</Typography.Title>
+            <Typography.Title level={5} style={{ margin: 0 }}>{t("Historique des factures")}</Typography.Title>
             {currentOrLatestRental && <AuthButton icon={<PlusOutlined />} disabled={isDemo}
-              onClick={() => openPayment(currentOrLatestRental)}>Ajouter une facture</AuthButton>}
+              onClick={() => openPayment(currentOrLatestRental)}>{t("Ajouter une facture")}</AuthButton>}
           </Space>
           <Table<UtilityPayment> size="small" rowKey="id" dataSource={roomPayments} pagination={false}
             scroll={{ x: 700 }} columns={[
-              { title: 'Locataire', render: (_: unknown, payment) =>
+              { title: t("Locataire"), render: (_: unknown, payment) =>
                 roomRentals.find(rental => rental.id === payment.rental_id)?.tenant_name ?? '—' },
-              { title: 'Type', dataIndex: 'type', render: type => type === 'water' ? 'Eau' : 'Électricité' },
-              { title: 'Période', dataIndex: 'billing_period', sorter: (left, right) => left.billing_period.localeCompare(right.billing_period) },
-              { title: 'Statut', dataIndex: 'status', render: status => <Tag color={status === 'paid' ? 'green' : 'red'}>
-                {status === 'paid' ? 'Payée' : 'Non payée'}
+              { title: t("Type"), dataIndex: 'type', render: type => type === 'water' ? t('Eau') : t('Électricité') },
+              { title: t("Période"), dataIndex: 'billing_period', sorter: (left, right) => left.billing_period.localeCompare(right.billing_period) },
+              { title: t("Statut"), dataIndex: 'status', render: status => <Tag color={status === 'paid' ? 'green' : 'red'}>
+                {status === 'paid' ? t("Payée") : t("Non payée")}
               </Tag> },
-              { title: 'Date paiement', dataIndex: 'payment_date', render: dateLabel },
-              { title: 'Montant', dataIndex: 'amount', render: money },
-              { title: 'Actions', key: 'actions', render: (_: unknown, payment) => <Space>
-                <AuthButton type="text" icon={<EditOutlined />} aria-label="Modifier la facture"
+              { title: t("Date paiement"), dataIndex: 'payment_date', render: dateLabel },
+              { title: t("Montant"), dataIndex: 'amount', render: (amount: UtilityPayment['amount']) =>
+                amount === null ? '—' : formatExpenseAmount(amount, numberLocale) },
+              { title: t("Actions"), key: 'actions', render: (_: unknown, payment) => <Space>
+                <AuthButton type="text" icon={<EditOutlined />} aria-label={t("Modifier la facture")}
                   onClick={() => openPayment(roomRentals.find(rental => rental.id === payment.rental_id)!, payment.type, payment)} />
-                <Popconfirm title="Archiver la facture"
-                  description="La facture sera archivée et ne sera plus incluse dans les statistiques."
+                <Popconfirm title={t("Archiver la facture")}
+                  description={t("La facture sera archivée et ne sera plus incluse dans les statistiques.")}
                   onConfirm={() => archivePaymentMutation.mutate(payment.id)}
-                  okText="Archiver" cancelText="Annuler">
-                  <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label="Archiver la facture" />
+                  okText={t("Archiver")} cancelText={t("Annuler")}>
+                  <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label={t("Archiver la facture")} />
                 </Popconfirm>
               </Space> },
             ]} />
