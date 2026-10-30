@@ -177,6 +177,14 @@ test('room rental and utility CRUD persists bills and blocks overlapping tenants
   assert.equal((await request('/rooms')).length, 2);
   await request(`/rooms/${extraRoom.id}`, 'DELETE', undefined, 204);
   assert.equal((await request('/rooms')).length, 1);
+  const archives = await request('/rooms?archived=true');
+  assert.equal(archives.length, 1);
+  assert.equal(archives[0].id, extraRoom.id);
+  await request('/rooms?archived=invalid', 'GET', undefined, 400);
+  await request('/room_rentals?archived=true', 'GET', undefined, 400);
+  await request(`/rooms/${extraRoom.id}/restore`, 'POST', { archived: false }, 400);
+  await request('/rooms/not-an-id/restore', 'POST', {}, 400);
+  await request('/rooms/123e4567-e89b-12d3-a456-426614174999/restore', 'POST', {}, 404);
 
   const rental = await request('/room_rentals', 'POST', {
     room_id: uuid, tenant_name: 'Nadia Ben Ali', phone: '+216 20 000 000',
@@ -219,4 +227,27 @@ test('room rental and utility CRUD persists bills and blocks overlapping tenants
   role = 'staff';
   await request(`/rooms/${uuid}`, 'DELETE', undefined, 204);
   assert.ok(getRows('utility_payments').size >= 4, 'rental bills are retained after room archival');
+  const history = structuredClone({
+    rentals: [...getRows('room_rentals').values()],
+    payments: [...getRows('utility_payments').values()],
+  });
+  role = 'demo';
+  assert.equal((await request('/rooms?archived=true')).length, 2);
+  await request(`/rooms/${uuid}/restore`, 'POST', {}, 403);
+  assert.equal(getRows('rooms').get(uuid).archived, true);
+  for (const allowedRole of ['admin', 'employee', 'staff']) {
+    role = allowedRole;
+    const restored = await request(`/rooms/${uuid}/restore`, 'POST', {});
+    assert.equal(restored.id, uuid);
+    assert.equal(restored.room_number, room.room_number);
+    assert.equal(restored.archived, false);
+    assert.equal((await request('/rooms')).length, 1);
+    assert.equal((await request('/rooms?archived=true')).length, 1);
+    await request(`/rooms/${uuid}/restore`, 'POST', {}, 400);
+    assert.deepEqual({
+      rentals: [...getRows('room_rentals').values()],
+      payments: [...getRows('utility_payments').values()],
+    }, history, 'restoration preserves rental and payment history');
+    await request(`/rooms/${uuid}`, 'DELETE', undefined, 204);
+  }
 });

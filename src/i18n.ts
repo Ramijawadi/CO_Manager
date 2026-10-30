@@ -125,6 +125,13 @@ const arabicTranslations = {
   'Détails': 'التفاصيل',
   Location: 'الإيجار',
   'Archiver la chambre': 'أرشفة الغرفة',
+  'Chambres archivées': 'الغرف المؤرشفة',
+  'Restaurer': 'استعادة',
+  'Chambre restaurée.': 'تمت استعادة الغرفة.',
+  'Aucune chambre archivée.': 'لا توجد غرف مؤرشفة.',
+  'Impossible de charger les chambres archivées': 'تعذر تحميل الغرف المؤرشفة',
+  'Restaurez une chambre pour la remettre dans la liste principale sans perdre son historique.':
+    'استعد الغرفة لإعادتها إلى القائمة الرئيسية دون فقدان سجلها.',
   'La chambre sera masquée, mais son historique de locations et de factures sera conservé.':
     'سيتم إخفاء الغرفة مع الاحتفاظ بسجل الإيجارات والفواتير.',
   Archiver: 'أرشفة',

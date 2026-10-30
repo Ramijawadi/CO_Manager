@@ -12,7 +12,8 @@ const rental = {
   entry_date: '2020-01-01', expected_departure_date: '2099-01-01', actual_departure_date: null,
 };
 
-function renderRooms({ desktop = true, details = false, editingPayment, mutations = [] } = {}) {
+function renderRooms({ desktop = true, details = false, editingPayment, mutations = [],
+  archived = false, isDemo = false, queries = [] } = {}) {
   const source = readFileSync(new URL('../src/features/rooms/RoomManagement.tsx', import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -28,7 +29,8 @@ function renderRooms({ desktop = true, details = false, editingPayment, mutation
         const index = stateIndex++;
         return [
           index === 6 && details ? room
-            : index === 7 ? rental : index === 9 ? editingPayment : initial,
+            : index === 7 ? rental : index === 9 ? editingPayment
+              : index === 10 ? archived : initial,
           () => {},
         ];
       },
@@ -40,14 +42,18 @@ function renderRooms({ desktop = true, details = false, editingPayment, mutation
         'Row', 'Select', 'Space', 'Statistic', 'Table', 'Tag', 'Tooltip',
       ].map(name => [name, name])),
       Grid: { useBreakpoint: () => ({ md: desktop }) },
-      Typography: { Text: 'Text', Title: 'Title' },
+      Typography: { Text: 'Text', Title: 'Title', Paragraph: 'Paragraph' },
       message: { useMessage: () => [{}, null] },
     },
     '@ant-design/icons': {},
     '@tanstack/react-query': {
-      useQuery: ({ queryKey }) => ({
-        data: { rooms: [room], roomRentals: [rental], utilityPayments: [] }[queryKey[0]],
-      }),
+      useQuery: options => {
+        queries.push(options);
+        return {
+          data: options.queryKey[1] === 'archived' ? [{ ...room, archived: true }]
+            : { rooms: [room], roomRentals: [rental], utilityPayments: [] }[options.queryKey[0]],
+        };
+      },
       useMutation: () => {
         const calls = [];
         mutations.push(calls);
@@ -57,7 +63,7 @@ function renderRooms({ desktop = true, details = false, editingPayment, mutation
     },
     dayjs: require('dayjs'),
     '../../components/AuthButton': { AuthButton: 'AuthButton' },
-    '../../hooks/usePermissions': { usePermissions: () => ({ isDemo: false }) },
+    '../../hooks/usePermissions': { usePermissions: () => ({ isDemo }) },
     './api': {},
     './RoomManagementForms': {
       RoomForm: 'RoomForm', RentalForm: 'RentalForm', UtilityPaymentForm: 'UtilityPaymentForm',
@@ -134,4 +140,28 @@ test('creating a bill still includes its rental ID', () => {
   findElements(page, 'UtilityPaymentForm')[0].props.onSubmit(values);
   assert.deepEqual(mutations[4], [values]);
   assert.deepEqual(schemas.utility_payments.create.parse(mutations[4][0]), values);
+});
+
+test('archived rooms are fetched on demand and can be restored except by demo accounts', () => {
+  for (const isDemo of [false, true]) {
+    const mutations = [];
+    const queries = [];
+    const page = renderRooms({ archived: true, isDemo, mutations, queries });
+    const drawer = findElements(page, 'Drawer').find(node => node.props.title === 'Chambres archivées');
+    assert.equal(drawer.props.open, true);
+    assert.equal(queries.find(query => query.queryKey[1] === 'archived').enabled, true);
+    const table = findElements(drawer, 'Table')[0];
+    const archivedRoom = table.props.dataSource[0];
+    assert.equal(archivedRoom.archived, true);
+    const button = table.props.columns.at(-1).render(undefined, archivedRoom);
+    assert.equal(Boolean(button.props.disabled), isDemo);
+    assert.equal(button.props.children, 'Restaurer');
+    if (!isDemo) {
+      button.props.onClick();
+      assert.deepEqual(mutations[9], [room.id]);
+    }
+  }
+  const queries = [];
+  renderRooms({ queries });
+  assert.equal(queries.find(query => query.queryKey[1] === 'archived').enabled, false);
 });

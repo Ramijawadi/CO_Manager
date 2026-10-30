@@ -14,7 +14,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import {
   archiveRental, archiveRoom, archiveUtilityPayment, createRental, createRoom,
   createUtilityPayment, getRoomRentals, getRooms, getUtilityPayments, updateRental,
-  updateRoom, updateUtilityPayment,
+  updateRoom, updateUtilityPayment, getArchivedRooms, restoreRoom,
 } from './api';
 import { RentalForm, RoomForm, UtilityPaymentForm } from './RoomManagementForms';
 import type { Room, RoomRental, RoomRentalInput, UtilityPayment, UtilityPaymentInput } from './types';
@@ -48,8 +48,12 @@ export default function RoomManagement() {
   const [paymentTarget, setPaymentTarget] = useState<RoomRental>();
   const [paymentType, setPaymentType] = useState<'water' | 'electricity'>();
   const [editingPayment, setEditingPayment] = useState<UtilityPayment>();
+  const [showArchivedRooms, setShowArchivedRooms] = useState(false);
 
   const roomsQuery = useQuery({ queryKey: ['rooms'], queryFn: getRooms });
+  const archivedRoomsQuery = useQuery({
+    queryKey: ['rooms', 'archived'], queryFn: getArchivedRooms, enabled: showArchivedRooms,
+  });
   const rentalsQuery = useQuery({ queryKey: ['roomRentals'], queryFn: getRoomRentals });
   const paymentsQuery = useQuery({ queryKey: ['utilityPayments'], queryFn: getUtilityPayments });
   const rooms = roomsQuery.data ?? EMPTY_ROOMS;
@@ -107,6 +111,11 @@ export default function RoomManagement() {
   });
   const archivePaymentMutation = useMutation({
     mutationFn: archiveUtilityPayment, onSuccess: () => { handleMutationSuccess('Facture archivée.'); },
+    onError: error => { void messageApi.error(error.message); },
+  });
+  const restoreRoomMutation = useMutation({
+    mutationFn: restoreRoom,
+    onSuccess: () => { handleMutationSuccess('Chambre restaurée.'); },
     onError: error => { void messageApi.error(error.message); },
   });
   const isSaving = createRoomMutation.isPending || updateRoomMutation.isPending ||
@@ -310,8 +319,11 @@ export default function RoomManagement() {
 
       <Card className="rooms-overview" variant="borderless" style={{ border: '1px solid #f1f5f9' }}
         title={<Space><HomeOutlined /><span>{t("Parc de chambres")}</span></Space>}
-        extra={<AuthButton type="primary" icon={<PlusOutlined />} onClick={() => openRoom()}>
-          {t("Ajouter une chambre")}{' '}</AuthButton>}>
+        extra={<Space wrap>
+          <Button onClick={() => setShowArchivedRooms(true)}>{t("Chambres archivées")}</Button>
+          <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => openRoom()}>
+            {t("Ajouter une chambre")}{' '}</AuthButton>
+        </Space>}>
         <div className="rooms-table-toolbar">
           <Input placeholder={t("Chambre, locataire ou téléphone")} prefix={<SearchOutlined />}
             aria-label={t("Rechercher une chambre, un locataire ou un téléphone")}
@@ -330,6 +342,32 @@ export default function RoomManagement() {
           locale={{ emptyText: <Empty description={search || filter !== 'all'
             ? t("Aucune chambre ne correspond aux filtres.") : t("Aucune chambre enregistrée.")} /> }} />
       </Card>
+
+      <Drawer title={t("Chambres archivées")} open={showArchivedRooms}
+        onClose={() => setShowArchivedRooms(false)} width={Math.min(850, window.innerWidth - 24)}>
+        <Typography.Paragraph>
+          {t("Restaurez une chambre pour la remettre dans la liste principale sans perdre son historique.")}
+        </Typography.Paragraph>
+        {archivedRoomsQuery.error && <Alert type="error" showIcon
+          title={t("Impossible de charger les chambres archivées")}
+          description={archivedRoomsQuery.error.message}
+          action={<Button onClick={() => { void archivedRoomsQuery.refetch(); }}>{t("Réessayer")}</Button>}
+          style={{ marginBottom: 16 }} />}
+        <Table<Room> dataSource={archivedRoomsQuery.data ?? EMPTY_ROOMS} rowKey="id"
+          loading={archivedRoomsQuery.isLoading} scroll={{ x: 500 }}
+          columns={[
+            { title: t("Chambre"), dataIndex: 'room_number' },
+            { title: t("Nom"), dataIndex: 'name' },
+            { title: t("Actions"), key: 'actions', render: (_: unknown, room: Room) => (
+              <AuthButton disabled={isDemo || restoreRoomMutation.isPending}
+                loading={restoreRoomMutation.isPending && restoreRoomMutation.variables === room.id}
+                onClick={() => restoreRoomMutation.mutate(room.id)}>
+                {t("Restaurer")}
+              </AuthButton>
+            ) },
+          ]}
+          locale={{ emptyText: <Empty description={t("Aucune chambre archivée.")} /> }} />
+      </Drawer>
 
       <Drawer title={detailRoom ? t('Détails — {{name}}', { name: detailRoom.name }) : t("Détails de la chambre")}
         open={Boolean(detailRoom)} onClose={() => setDetailRoom(undefined)} width={Math.min(850, window.innerWidth - 24)}>

@@ -41,6 +41,7 @@ const querySchema = z.object({
   since: z.iso.datetime({ offset: true }).transform(value => new Date(value).toISOString()).optional(),
   start: z.iso.date().optional(), end: z.iso.date().optional(),
   active_on: z.iso.date().optional(),
+  archived: z.enum(['true', 'false']).optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 }).strict();
 const employeeListSchema = z.object({
@@ -803,8 +804,12 @@ export async function createApp({
     }
     const query = querySchema.parse(req.query);
     const filter = {};
+    if (query.archived !== undefined && table !== 'rooms') {
+      throw badRequest('Le filtre des archives est réservé aux chambres.');
+    }
     if (query.status) filter.status = query.status;
     if (['rooms', 'room_rentals', 'utility_payments'].includes(table)) filter.archived = { $ne: true };
+    if (table === 'rooms' && query.archived === 'true') filter.archived = true;
     if (query.customer_id) filter.customer_id = query.customer_id;
     if (query.since) filter[table === 'sessions' ? 'entry_time' : 'created_at'] = { $gte: query.since };
     if (query.start || query.end) {
@@ -848,6 +853,22 @@ export async function createApp({
       return res.status(403).json({ message: 'This operation is available for administrators only.' });
     }
     next();
+  });
+  app.post('/api/rooms/:id/restore', async (req, res) => {
+    const { id } = req.params;
+    idSchema.parse(id);
+    z.object({}).strict().parse(req.body);
+    const room = await client.withSession(session => session.withTransaction(async () => {
+      const existing = await db.collection('rooms').findOne({ id }, { session });
+      if (!existing) throw notFound();
+      if (!existing.archived) throw badRequest('Cette chambre est déjà dans la liste principale.');
+      return db.collection('rooms').findOneAndUpdate(
+        { id, archived: true },
+        { $set: { archived: false, updated_at: new Date().toISOString() } },
+        { session, returnDocument: 'after', projection },
+      );
+    }));
+    res.json(room);
   });
   app.post('/api/:table', async (req, res) => {
     const { table } = req.params;

@@ -7,6 +7,7 @@ const inDinars = (payment: UtilityPayment): UtilityPayment => ({
 });
 
 export const getRooms = (): Promise<Room[]> => apiRequest('/rooms');
+export const getArchivedRooms = (): Promise<Room[]> => apiRequest('/rooms?archived=true');
 export const getRoomRentals = (): Promise<RoomRental[]> => apiRequest('/room_rentals');
 export const getUtilityPayments = async (): Promise<UtilityPayment[]> =>
   (await apiRequest<UtilityPayment[]>('/utility_payments')).map(inDinars);
@@ -17,6 +18,8 @@ export const updateRoom = (id: string, data: Partial<Pick<Room, 'room_number' | 
   apiRequest(`/rooms/${id}`, { method: 'PATCH', body: jsonBody(data) });
 export const archiveRoom = (id: string): Promise<void> =>
   apiRequest(`/rooms/${id}`, { method: 'DELETE' });
+export const restoreRoom = (id: string): Promise<Room> =>
+  apiRequest(`/rooms/${id}/restore`, { method: 'POST', body: jsonBody({}) });
 
 export const createRental = (data: RoomRentalInput): Promise<RoomRental> =>
   apiRequest('/room_rentals', { method: 'POST', body: jsonBody(data) });

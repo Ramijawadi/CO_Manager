@@ -158,10 +158,16 @@ amounts are stored in integer millimes. Paid bills require a payment date.
 Room, rental, and utility deletion is implemented as archiving so the rental
 and payment history remains in MongoDB. Admin and staff accounts can manage
 these records; demo accounts remain read-only.
+On the Rooms page, choose **Chambres archivées**, then **Restaurer** next to a
+room to return it to the main list. Restoration keeps its original ID, rental
+history, and invoices; it does not restore separately archived rentals or bills.
+Demo accounts can view archived rooms but cannot restore them.
 
 The API uses the existing authenticated collection endpoints:
 `/api/rooms`, `/api/room_rentals`, and `/api/utility_payments` (GET, POST,
-PATCH by ID, and DELETE by ID; DELETE archives these records). No new
+PATCH by ID, and DELETE by ID; DELETE archives these records).
+`GET /api/rooms?archived=true` lists archived rooms, and
+`POST /api/rooms/:id/restore` with an empty JSON object restores a room. No new
 environment variables or additional database are required. For local setup,
 run `npm run setup-db` followed by `npm run dev`; verify with `npm test` and
 `npm run build`. Deploy using the existing deployment workflow after applying
