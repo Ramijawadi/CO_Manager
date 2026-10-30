@@ -841,7 +841,7 @@ export async function createApp({
       return res.status(403).json({ message: 'Demo accounts are read-only.' });
     }
     if (!['GET', 'HEAD'].includes(req.method) &&
-        ['customers', 'sessions', 'session_products', 'subscriptions', 'subscription_payments'].includes(req.params.table)) {
+        ['customers', 'sessions', 'session_products', 'products', 'subscriptions', 'subscription_payments'].includes(req.params.table)) {
       return requireEmployee(req, res, next);
     }
     if (['settings', 'daily_closures'].includes(req.params.table) && req.user.role !== 'admin') {

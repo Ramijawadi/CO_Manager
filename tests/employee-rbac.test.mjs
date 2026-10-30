@@ -214,9 +214,14 @@ test('employee registration, shifts, ownership, admin controls and account revoc
   await request(`/settings/${settingsId}`, 'PATCH', { hourly_rate: 2 }, employeeCookie, 403);
   await request(`/settings/${settingsId}`, 'PATCH', { hourly_rate: 2 }, adminCookie);
 
+  await request('/products', 'POST', { name: 'Admin coffee', price: 1500, stock: 10 }, adminCookie, 403);
   const product = (await request('/products', 'POST', {
     name: 'Coffee', price: 1500, stock: 10,
-  }, adminCookie, 201)).value;
+  }, employeeCookie, 201)).value;
+  await request(`/products/${product.id}`, 'PATCH', { stock: 5 }, adminCookie, 403);
+  await request(`/products/${product.id}`, 'DELETE', undefined, adminCookie, 403);
+  await request('/products', 'GET', undefined, adminCookie);
+  await request(`/products/${product.id}`, 'PATCH', { stock: 10 }, employeeCookie);
   const plan = (await request('/plans', 'POST', {
     name: 'Monthly', price: 80, duration_days: 30,
   }, adminCookie, 201)).value;

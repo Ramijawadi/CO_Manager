@@ -92,7 +92,7 @@ test('product table renders a stored 1500-millime price as 1dt.500', async () =>
     './api': api,
     './ProductForm': { default: 'ProductForm', __esModule: true },
     '../../components/AuthButton': { AuthButton: 'AuthButton' },
-    '../../hooks/usePermissions': { usePermissions: () => ({ requireAdmin: () => true, isDemo: false }) },
+    '../../hooks/usePermissions': { usePermissions: () => ({ requireWrite: () => true, isReadOnly: false }) },
     '../../lib/productMoney': money,
     'react-i18next': { useTranslation: () => ({ t: key => key, i18n: { resolvedLanguage: 'fr' } }) },
   });

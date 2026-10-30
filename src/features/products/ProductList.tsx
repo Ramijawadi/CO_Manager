@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 const ProductList: React.FC = () => {
   const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
-  const { requireAdmin, isDemo } = usePermissions();
+  const { requireWrite, isReadOnly } = usePermissions(true);
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | undefined>();
@@ -58,19 +58,19 @@ const ProductList: React.FC = () => {
   );
 
   const handleAdd = () => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     setEditingProduct(undefined);
     setIsModalOpen(true);
   };
 
   const handleEdit = (product: Product) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     setEditingProduct(product);
     setIsModalOpen(true);
   };
 
   const handleModalSubmit = (values: ProductInput) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     if (editingProduct) {
       updateMutation.mutate({ id: editingProduct.id, data: values });
     } else {
@@ -88,9 +88,9 @@ const ProductList: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Product) => (
         <Space size="middle">
-          <AuthButton type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
-          {isDemo ? (
-            <AuthButton type="text" danger icon={<DeleteOutlined />} />
+          <AuthButton employeeOnly type="text" icon={<EditOutlined />} onClick={() => handleEdit(record)} />
+          {isReadOnly ? (
+            <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
               title={t("Supprimer le produit")}
@@ -99,7 +99,7 @@ const ProductList: React.FC = () => {
               okText={t("Oui")}
               cancelText={t("Non")}
             >
-              <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
+              <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
           )}
         </Space>
@@ -118,7 +118,7 @@ const ProductList: React.FC = () => {
           style={{ width: 300 }}
           allowClear
         />
-        <AuthButton type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <AuthButton employeeOnly type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           {t("Nouveau produit")}{' '}</AuthButton>
       </div>
 

@@ -230,11 +230,11 @@ and any administrative closure reason.
 Run `npm run setup-db` after updating to safely create the
 new validated collections and indexes without deleting existing records.
 Reports and platform settings remain administrator-only. Administrators can
-consult customers, sessions, consumptions, subscriptions and subscription
-payments, but only employees (including legacy `staff`) can create, update or
-delete those records, including closing customer sessions. The UI disables
+consult customers, sessions, consumptions, catalog products, subscriptions and
+subscription payments, but only employees (including legacy `staff`) can create,
+update or delete those records, including closing customer sessions. The UI disables
 these actions for administrators and the API rejects direct writes with HTTP
-403. Catalog products, plans, employee management and administrative settings
+403. Plans, employee management and administrative settings
 remain available to administrators. Closing an employee shift with an audited
 reason is separate from closing a customer session and remains an admin action.
 The authenticated `GET /api/session-pricing` endpoint exposes only the hourly
