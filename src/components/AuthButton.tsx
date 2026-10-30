@@ -2,18 +2,20 @@ import React from 'react';
 import { Button, Tooltip } from 'antd';
 import type { ButtonProps } from 'antd';
 import { usePermissions } from '../hooks/usePermissions';
-import { useTranslation } from 'react-i18next';
 
-export const AuthButton: React.FC<ButtonProps> = (props) => {
-  const { t } = useTranslation();
-  const { isDemo, requireAdmin } = usePermissions();
+export const AuthButton: React.FC<ButtonProps & { employeeOnly?: boolean }> = ({ employeeOnly = false, ...props }) => {
+  const { isReadOnly, requireWrite, deniedMessage } = usePermissions(employeeOnly);
 
-  if (isDemo) {
+  if (isReadOnly) {
     return (
-      <Tooltip title={t("Available for administrators only.")}>
+      <Tooltip title={deniedMessage}>
         <span 
           style={{ display: 'inline-block', cursor: 'not-allowed' }}
-          onClickCapture={(e) => requireAdmin(e)}
+          onClickCapture={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            requireWrite();
+          }}
         >
           <Button
             {...props}

@@ -62,8 +62,12 @@ const CustomerForm: React.FC<CustomerFormProps> = ({ open, onCancel, onSubmit, i
         <Form.Item
           name="phone"
           label={t("Numéro de téléphone")}
+          validateTrigger="onBlur"
+          rules={[
+            { pattern: /^[0-9]{8}$/, message: t("Le numéro de téléphone doit contenir exactement 8 chiffres.") },
+          ]}
         >
-          <Input placeholder={t("+1 234 567 8900")} />
+          <Input placeholder={t("Numéro de téléphone")} inputMode="numeric" />
         </Form.Item>
         <Form.Item
           name="notes"

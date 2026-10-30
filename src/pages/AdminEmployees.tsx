@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import dayjs from 'dayjs';
 import {
-  Alert, Button, Card, DatePicker, Input, Modal, Pagination, Select, Space, Table, Tag, Typography, message,
+  Alert, Button, Card, DatePicker, Descriptions, Input, Modal, Pagination, Select, Space, Table, Tag, Typography, message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +11,7 @@ import {
 } from '../features/employee/adminApi';
 import type { WorkSession } from '../features/employee/api';
 import { useTranslation } from 'react-i18next';
+import { getDateLocale } from '../i18n';
 
 const { Text } = Typography;
 
@@ -30,7 +32,9 @@ const statusColor = (status: string) => ({
 }[status] ?? 'default');
 
 const AdminEmployees: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = getDateLocale(i18n.resolvedLanguage);
+  const formatDate = (value: string | null) => value ? new Date(value).toLocaleString(locale) : '—';
   const queryClient = useQueryClient();
   const [employeePage, setEmployeePage] = useState(1);
   const [shiftPage, setShiftPage] = useState(1);
@@ -40,6 +44,7 @@ const AdminEmployees: React.FC = () => {
   const [shiftStartDate, setShiftStartDate] = useState('');
   const [shiftEndDate, setShiftEndDate] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeAccount | null>(null);
+  const [detailShiftId, setDetailShiftId] = useState<string | null>(null);
   const [action, setAction] = useState<PendingAction | null>(null);
   const [reason, setReason] = useState('');
 
@@ -53,6 +58,7 @@ const AdminEmployees: React.FC = () => {
       shiftPage, shiftStatus, selectedEmployee?.id, shiftStartDate, shiftEndDate,
     ),
   });
+  const detailShift = shifts.data?.items.find(shift => shift.id === detailShiftId);
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ['adminEmployees'] }),
@@ -113,7 +119,13 @@ const AdminEmployees: React.FC = () => {
           : status === 'active' ? t('Désactiver') : t('Activer');
         return (
           <Space wrap>
-            <Button size="small" onClick={() => { setSelectedEmployee(employee); setShiftPage(1); }}>
+            <Button size="small" onClick={() => {
+              setSelectedEmployee(employee);
+              setShiftPage(1);
+              setShiftStatus('');
+              setShiftStartDate('');
+              setShiftEndDate('');
+            }}>
               {t('Voir les services')}
             </Button>
             <Button
@@ -148,13 +160,13 @@ const AdminEmployees: React.FC = () => {
       title: t('Début du service'),
       dataIndex: 'start_time',
       key: 'start_time',
-      render: (value: string) => new Date(value).toLocaleString(),
+      render: formatDate,
     },
     {
       title: t('Fin du service'),
       dataIndex: 'end_time',
       key: 'end_time',
-      render: (value: string | null) => value ? new Date(value).toLocaleString() : '—',
+      render: formatDate,
     },
     {
       title: t('Durée'),
@@ -166,15 +178,20 @@ const AdminEmployees: React.FC = () => {
       title: t('État'),
       dataIndex: 'status',
       key: 'status',
-      render: (value: string) => <Tag color={value === 'active' ? 'green' : 'default'}>{t(value)}</Tag>,
+      render: (value: string) => <Tag color={value === 'active' ? 'green' : 'default'}>{t(statusLabel(value))}</Tag>,
     },
     {
       title: t('Actions'),
       key: 'actions',
-      render: (_, shift) => shift.status === 'active' && (
-        <Button size="small" danger onClick={() => setAction({ type: 'shift', shift })}>
-          {t('Clôturer le service')}
-        </Button>
+      render: (_, shift) => (
+        <Space wrap>
+          <Button size="small" onClick={() => setDetailShiftId(shift.id)}>{t('Détails')}</Button>
+          {shift.status === 'active' && (
+            <Button size="small" danger onClick={() => setAction({ type: 'shift', shift })}>
+              {t('Clôturer le service')}
+            </Button>
+          )}
+        </Space>
       ),
     },
   ];
@@ -214,7 +231,7 @@ const AdminEmployees: React.FC = () => {
             style={{ width: 180 }}
           />
           {selectedEmployee && (
-            <Button onClick={() => setSelectedEmployee(null)}>
+            <Button onClick={() => { setSelectedEmployee(null); setShiftPage(1); }}>
               {t('Afficher tous les services')}
             </Button>
           )}
@@ -231,7 +248,7 @@ const AdminEmployees: React.FC = () => {
           scroll={{ x: 800 }}
           locale={{ emptyText: t('Aucun employé trouvé') }}
           onRow={employee => ({
-            onDoubleClick: () => setSelectedEmployee(employee),
+            onDoubleClick: () => { setSelectedEmployee(employee); setShiftPage(1); },
           })}
         />
         <Pagination
@@ -247,7 +264,7 @@ const AdminEmployees: React.FC = () => {
       <Card title={selectedEmployee
         ? `${t('Services de')} ${selectedEmployee.full_name || selectedEmployee.email}`
         : t('Services employés')}>
-        <Space style={{ marginBottom: 16 }}>
+        <Space wrap style={{ marginBottom: 16 }}>
           <Select
             value={shiftStatus || undefined}
             allowClear
@@ -259,6 +276,7 @@ const AdminEmployees: React.FC = () => {
             style={{ width: 180 }}
           />
           <DatePicker.RangePicker
+            value={shiftStartDate && shiftEndDate ? [dayjs(shiftStartDate), dayjs(shiftEndDate)] : null}
             onChange={range => {
               setShiftStartDate(range?.[0]?.format('YYYY-MM-DD') ?? '');
               setShiftEndDate(range?.[1]?.format('YYYY-MM-DD') ?? '');
@@ -288,6 +306,30 @@ const AdminEmployees: React.FC = () => {
           style={{ marginTop: 16, textAlign: 'right' }}
         />
       </Card>
+
+      <Modal
+        title={t('Détails du service')}
+        open={!!detailShift}
+        onCancel={() => setDetailShiftId(null)}
+        footer={<Button onClick={() => setDetailShiftId(null)}>{t('Fermer')}</Button>}
+      >
+        {detailShift && (
+          <Descriptions column={1} bordered size="small" items={[
+            { key: 'employee', label: t('Employé'), children: detailShift.employee?.full_name || detailShift.employee?.email || detailShift.employee_id },
+            { key: 'email', label: t('Email'), children: detailShift.employee?.email || '—' },
+            { key: 'start', label: t('Début du service'), children: formatDate(detailShift.start_time) },
+            { key: 'end', label: t('Fin du service'), children: formatDate(detailShift.end_time) },
+            { key: 'duration', label: t('Durée'), children: detailShift.duration_minutes === null ? t('En cours') : `${detailShift.duration_minutes} ${t('minutes')}` },
+            { key: 'status', label: t('État'), children: t(statusLabel(detailShift.status)) },
+            { key: 'created', label: t('Date de création'), children: formatDate(detailShift.created_at) },
+            { key: 'closure', label: t('Clôture administrative'), children: t(detailShift.closed_by ? 'Oui' : 'Non') },
+            ...(detailShift.closed_by ? [
+              { key: 'closed_by', label: t('Identifiant de l’administrateur'), children: detailShift.closed_by },
+              { key: 'reason', label: t('Motif de clôture'), children: detailShift.close_reason || '—' },
+            ] : []),
+          ]} />
+        )}
+      </Modal>
 
       <Modal
         title={actionTitle}

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Table, Button, message, Select, Modal, Input, Form } from 'antd';
 import { CheckCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getActiveSessions, createSession, checkoutSession } from './api';
+import { getActiveSessions, createSession, checkoutSession, getSessionPricing } from './api';
 import { getCustomers, createCustomer } from '../customers/api';
 import type { Session } from './types';
 import { calculateDuration, calculateTimeCost } from '../../utils/time';
@@ -17,7 +17,7 @@ const SessionList: React.FC = () => {
   const { t, i18n } = useTranslation();
   const dateLocale = getDateLocale(i18n.resolvedLanguage);
   const queryClient = useQueryClient();
-  const { requireAdmin, isDemo } = usePermissions();
+  const { requireWrite, isReadOnly, deniedMessage } = usePermissions(true);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
   const [visitorMode, setVisitorMode] = useState(false);
   const [form] = Form.useForm();
@@ -72,7 +72,7 @@ const SessionList: React.FC = () => {
   } | null>(null);
 
   const handleInitiateCheckout = async (session: Session) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     const exitTime = new Date().toISOString();
     const durationHours = calculateDuration(session.entry_time, exitTime);
     let timeCost = 0;
@@ -86,9 +86,8 @@ const SessionList: React.FC = () => {
         timeCost = 0;
         isSubscribed = true;
       } else {
-        const { getSettings } = await import('../settings/api');
-        const settings = await getSettings();
-        timeCost = calculateTimeCost(durationHours, settings?.hourly_rate || 1);
+        const settings = await getSessionPricing();
+        timeCost = calculateTimeCost(durationHours, settings.hourly_rate);
       }
 
       const productCost = (session.session_products || []).reduce((acc, curr) => acc + curr.total_price, 0);
@@ -105,7 +104,7 @@ const SessionList: React.FC = () => {
   };
 
   const handleConfirmCheckout = () => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     if (!checkoutDetails) return;
     const { session, timeCost } = checkoutDetails;
 
@@ -120,12 +119,12 @@ const SessionList: React.FC = () => {
   };
 
   const handleCheckInSubmit = () => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     form.submit();
   };
 
   const handleCheckInFinish = (values: any) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     if (visitorMode) {
       // Create quick visitor first
       const payload: any = {
@@ -184,7 +183,7 @@ const SessionList: React.FC = () => {
       title: t("Action"),
       key: 'action',
       render: (_: any, record: Session) => (
-        <AuthButton 
+        <AuthButton employeeOnly
           type="primary" 
           danger 
           icon={<CheckCircleOutlined />} 
@@ -199,8 +198,8 @@ const SessionList: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '0 24px' }}>
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, paddingTop: 20 }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#0f172a' }}>{t("Sessions Actives")}</h2>
-        <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
-          if (!requireAdmin()) return;
+        <AuthButton employeeOnly type="primary" icon={<PlusOutlined />} onClick={() => {
+          if (!requireWrite()) return;
           setIsCheckInModalOpen(true);
         }}>
           {t("Nouvelle session")}{' '}</AuthButton>
@@ -242,7 +241,7 @@ const SessionList: React.FC = () => {
         }}
         onOk={handleCheckInSubmit}
         confirmLoading={checkInMutation.isPending || quickVisitorMutation.isPending}
-        okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
+        okButtonProps={{ disabled: isReadOnly, title: isReadOnly ? deniedMessage : undefined }}
       >
         <Form form={form} layout="vertical" onFinish={handleCheckInFinish}>
           <div style={{ marginBottom: 16 }}>
@@ -284,8 +283,15 @@ const SessionList: React.FC = () => {
               >
                 <Input placeholder={t("Nom du visiteur")} />
               </Form.Item>
-              <Form.Item name="phone" label={t("Téléphone (Optionnel)")}>
-                <Input placeholder={t("Numéro de téléphone")} />
+              <Form.Item
+                name="phone"
+                label={t("Téléphone (Optionnel)")}
+                validateTrigger="onBlur"
+                rules={[
+                  { pattern: /^[0-9]{8}$/, message: t("Le numéro de téléphone doit contenir exactement 8 chiffres.") },
+                ]}
+              >
+                <Input placeholder={t("Numéro de téléphone")} inputMode="numeric" />
               </Form.Item>
             </>
           )}
@@ -300,7 +306,7 @@ const SessionList: React.FC = () => {
         onOk={handleConfirmCheckout}
         okText={t("Confirmer et Terminer")}
         confirmLoading={checkoutMutation.isPending}
-        okButtonProps={{ disabled: isDemo, title: isDemo ? 'Available for administrators only.' : undefined }}
+        okButtonProps={{ disabled: isReadOnly, title: isReadOnly ? deniedMessage : undefined }}
       >
         {checkoutDetails && (
           <div style={{ fontSize: '16px' }}>

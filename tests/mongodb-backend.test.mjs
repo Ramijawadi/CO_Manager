@@ -33,6 +33,11 @@ test('saved UUID compatibility is retained while placeholder IDs are rejected', 
 test('server rejects operator injection, unknown fields, invalid prices and quantities', () => {
   assert.throws(() => schemas.customers.create.parse({ full_name: { $ne: null } }));
   assert.throws(() => schemas.customers.create.parse({ full_name: 'Name', role: 'admin' }));
+  assert.throws(() => schemas.customers.create.parse({ full_name: 'Name', phone: '1234567' }));
+  assert.throws(() => schemas.customers.create.parse({ full_name: 'Name', phone: '123456789' }));
+  assert.throws(() => schemas.customers.create.parse({ full_name: 'Name', phone: '1234abcd' }));
+  assert.equal(schemas.customers.create.parse({ full_name: 'Name', phone: '01234567' }).phone, '01234567');
+  assert.equal(schemas.customers.create.parse({ full_name: 'Name', phone: '' }).phone, '');
   assert.throws(() => schemas.plans.create.parse({ name: 'Plan', price: -1, duration_days: 1 }));
   assert.throws(() => schemas.plans.create.parse({ name: 'Plan', price: Infinity, duration_days: 1 }));
   assert.throws(() => schemas.session_products.create.parse({ session_id: id, product_id: id, quantity: 1.5, total_price: 2 }));

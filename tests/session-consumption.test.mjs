@@ -6,7 +6,7 @@ import ts from 'typescript';
 
 const require = createRequire(import.meta.url);
 
-function renderComponent(file, sessions = []) {
+function renderComponent(file, sessions = [], isReadOnly = false, products = [], selectedProductIds = []) {
   const source = readFileSync(new URL(`../src/features/sessions/${file}.tsx`, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, {
     compilerOptions: {
@@ -24,7 +24,7 @@ function renderComponent(file, sessions = []) {
       Modal: 'modal',
       Form: Object.assign('form', {
         useForm: () => [{}],
-        useWatch: () => undefined,
+        useWatch: field => field === 'product_ids' ? selectedProductIds : undefined,
         Item: 'form-item',
       }),
       Select: 'select',
@@ -36,12 +36,17 @@ function renderComponent(file, sessions = []) {
     },
     '@ant-design/icons': {},
     '@tanstack/react-query': {
-      useQuery: ({ queryKey }) => ({ data: queryKey[0] === 'activeSessions' ? sessions : [] }),
+      useQuery: ({ queryKey }) => ({
+        data: queryKey[0] === 'activeSessions' ? sessions : queryKey[0] === 'products' ? products : [],
+      }),
       useMutation: () => ({}),
       useQueryClient: () => ({}),
     },
     '../../components/AuthButton': { AuthButton: 'auth-button' },
-    '../../hooks/usePermissions': { usePermissions: () => ({ requireAdmin: () => true, isDemo: false }) },
+    '../../hooks/usePermissions': { usePermissions: employeeOnly => {
+      assert.equal(employeeOnly, true);
+      return { requireWrite: () => !isReadOnly, isReadOnly };
+    } },
     '../../lib/productMoney': { formatProductPrice: value => `${value.toFixed(3)}dt` },
     '../../utils/time': {},
     '../../i18n': { getDateLocale: () => 'fr-FR' },
@@ -81,6 +86,24 @@ test('consumed products retain every row with fixed-header scrolling and five-ro
   }
 });
 
+test('the add-product form allows selecting multiple products with individual quantities', () => {
+  const products = [
+    { id: 'coffee', name: 'Coffee', price: 1, stock: 10 },
+    { id: 'tea', name: 'Tea', price: 2, stock: 10 },
+  ];
+  const Panel = renderComponent('SessionConsumptionPanel', [], false, products, ['coffee', 'tea']);
+  const panel = Panel({ session: { id: 'session-1', session_products: [] } });
+  const modal = panel.props.children[2];
+  const form = modal.props.children;
+  const [selector] = form.props.children;
+  const quantityRows = form.props.children[1];
+
+  assert.equal(selector.props.children.props.mode, 'multiple');
+  assert.deepEqual(selector.props.children.props.options.map(option => option.value), ['coffee', 'tea']);
+  assert.equal(form.props.children.length, 4);
+  assert.deepEqual(quantityRows.map(row => row.props.children[1].props.name[1]), ['coffee', 'tea']);
+});
+
 test('the sessions viewport scrolls so expanded products and page controls are not clipped', () => {
   const SessionList = renderComponent('SessionList');
   const page = SessionList();
@@ -89,4 +112,26 @@ test('the sessions viewport scrolls so expanded products and page controls are n
   assert.equal(viewport.props.style.minHeight, 0);
   assert.equal(viewport.props.style.flex, 1);
   assert.equal(viewport.props.children.type, 'table');
+});
+
+test('session and consumption controls use employee-only buttons and read-only modal guards', () => {
+  for (const isReadOnly of [true, false]) {
+    const SessionList = renderComponent('SessionList', [], isReadOnly);
+    const page = SessionList();
+    assert.equal(page.props.children[0].props.children[1].props.employeeOnly, true);
+    const table = page.props.children[1].props.children;
+    const checkout = table.props.columns.find(column => column.key === 'action').render(null, { id: 'session-1' });
+    assert.equal(checkout.props.employeeOnly, true);
+    for (const modal of page.props.children.slice(2)) {
+      assert.equal(modal.props.okButtonProps.disabled, isReadOnly);
+    }
+    const Panel = renderComponent('SessionConsumptionPanel', [], isReadOnly);
+    const panel = Panel({ session: { id: 'session-1', session_products: [] } });
+    assert.equal(panel.props.children[0].props.children[1].props.employeeOnly, true);
+    const action = panel.props.children[1].props.columns.find(column => column.key === 'action')
+      .render(null, { id: 'item-1' });
+    const remove = isReadOnly ? action : action.props.children;
+    assert.equal(remove.props.employeeOnly, true);
+    assert.equal(panel.props.children[2].props.okButtonProps.disabled, isReadOnly);
+  }
 });

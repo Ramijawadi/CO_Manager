@@ -22,7 +22,7 @@ const SubscriptionList: React.FC = () => {
     ? formatExpenseAmount(price, numberLocale)
     : `${price.toFixed(3)} DT`;
   const queryClient = useQueryClient();
-  const { requireAdmin, isDemo } = usePermissions();
+  const { requireWrite, isReadOnly } = usePermissions(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Queries
@@ -58,7 +58,7 @@ const SubscriptionList: React.FC = () => {
       message.success(t("Abonnement créé avec succès"));
       setIsModalOpen(false);
     },
-    onError: (error: Error) => message.error(error.message),
+    onError: (error: Error) => message.error(t(error.message)),
   });
 
   const cancelMutation = useMutation({
@@ -80,7 +80,7 @@ const SubscriptionList: React.FC = () => {
   });
 
   const handleModalSubmit = (values: SubscriptionInput) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     createMutation.mutate(values);
   };
 
@@ -220,31 +220,31 @@ const SubscriptionList: React.FC = () => {
       render: (_: any, record: Subscription) => (
         <Space size="middle">
           {record.status !== 'cancelled' && (
-            isDemo ? (
-              <AuthButton type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
+            isReadOnly ? (
+              <AuthButton employeeOnly type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
             ) : (
               <Popconfirm
                 title={t("Annuler l'abonnement")}
                 description={t("Êtes-vous sûr de vouloir annuler ?")}
-                onConfirm={() => cancelMutation.mutate(record.id)}
+                onConfirm={() => { if (requireWrite()) cancelMutation.mutate(record.id); }}
                 okText={t("Oui")}
                 cancelText={t("Non")}
               >
-                <AuthButton type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
+                <AuthButton employeeOnly type="text" danger icon={<StopOutlined />} title={t("Annuler")} />
               </Popconfirm>
             )
           )}
-          {isDemo ? (
-            <AuthButton type="text" danger icon={<DeleteOutlined />} />
+          {isReadOnly ? (
+            <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
               title={t("Supprimer l'abonnement")}
               description={t("Êtes-vous sûr de vouloir supprimer cet enregistrement ?")}
-              onConfirm={() => deleteMutation.mutate(record.id)}
+              onConfirm={() => { if (requireWrite()) deleteMutation.mutate(record.id); }}
               okText={t("Oui")}
               cancelText={t("Non")}
             >
-              <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
+              <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
           )}
         </Space>
@@ -257,8 +257,8 @@ const SubscriptionList: React.FC = () => {
       <div style={{ marginBottom: 16, flexShrink: 0, paddingTop: 20 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600, color: '#0f172a' }}>{t("Gestion des Abonnements")}</h2>
-          <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => {
-            if (!requireAdmin()) return;
+          <AuthButton employeeOnly type="primary" icon={<PlusOutlined />} onClick={() => {
+            if (!requireWrite()) return;
             setIsModalOpen(true);
           }}>
             {t("Nouvel abonnement")}{' '}</AuthButton>

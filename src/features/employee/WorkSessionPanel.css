@@ -14,7 +14,7 @@
 
 .work-session-content {
   display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(240px, 0.85fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .work-session-main {
@@ -113,8 +113,7 @@
   gap: 3px;
 }
 
-.work-session-stat-label,
-.work-session-history-heading > .ant-typography {
+.work-session-stat-label {
   color: #7b8798;
   font-size: 12px;
 }
@@ -158,106 +157,11 @@
   font-size: 12px;
 }
 
-.work-session-history {
-  min-width: 0;
-  padding: 22px 22px 18px;
-  border-inline-start: 1px solid #edf0f5;
-  background: #fcfdff;
-}
-
-.work-session-history-heading {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.work-session-history-heading .ant-typography:first-child {
-  margin: 0;
-  color: #273449;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.work-session-history-list {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.work-session-history-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 9px 0;
-}
-
-.work-session-history-marker {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  flex: 0 0 24px;
-  place-items: center;
-  border-radius: 50%;
-  background: #edf8f2;
-  color: #238653;
-  font-size: 13px;
-}
-
-.work-session-history-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.work-session-history-date {
-  color: #344156;
-  font-size: 12px;
-  font-weight: 550;
-}
-
-.work-session-history-duration {
-  color: #8792a2;
-  font-size: 12px;
-}
-
-.work-session-empty {
-  display: flex;
-  min-height: 100px;
-  align-items: center;
-  justify-content: center;
-}
-
-.work-session-empty .ant-empty {
-  margin: 4px 0;
-}
-
-.work-session-empty .ant-empty-description {
-  font-size: 12px;
-}
-
 @media (max-width: 760px) {
-  .work-session-content {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .work-session-main {
     padding: 20px;
   }
 
-  .work-session-history {
-    padding: 18px 20px;
-    border-top: 1px solid #edf0f5;
-    border-inline-start: 0;
-  }
-
-  .work-session-history-heading {
-    margin-bottom: 6px;
-  }
 }
 
 @media (max-width: 460px) {
@@ -289,7 +193,4 @@
     padding-inline-start: 2px;
   }
 
-  .work-session-history {
-    padding: 16px;
-  }
 }

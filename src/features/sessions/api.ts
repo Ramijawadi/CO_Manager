@@ -4,6 +4,8 @@ import { sessionInDinars, toProductMillimes } from '../../lib/productMoney';
 
 export const getActiveSessions = async (): Promise<Session[]> =>
   (await apiRequest<Session[]>('/sessions?status=active')).map(sessionInDinars);
+export const getSessionPricing = (): Promise<{ hourly_rate: number }> =>
+  apiRequest('/session-pricing');
 export const addSessionProduct = async (session_id: string, product_id: string, quantity: number, total_price: number): Promise<void> => {
   await apiRequest('/session_products', {
     method: 'POST', body: jsonBody({ session_id, product_id, quantity, total_price: toProductMillimes(total_price) }),

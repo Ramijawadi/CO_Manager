@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Alert, Button, Form, Modal, Select, DatePicker } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getPlans } from '../plans/api';
+import { getSubscriptions } from './api';
 import type { SubscriptionInput, Subscription } from './types';
 import type { Customer } from '../customers/types';
 import dayjs from 'dayjs';
@@ -39,9 +40,23 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
     queryKey: ['plans'],
     queryFn: getPlans,
   });
+  const {
+    data: subscriptions = [], isPending: subscriptionsPending, isFetching: subscriptionsFetching,
+    error: subscriptionsError, refetch: refetchSubscriptions,
+  } = useQuery({
+    queryKey: ['subscriptions'],
+    queryFn: getSubscriptions,
+    enabled: open,
+  });
 
   const selectedPlan = plans.find(p => p.id === selectedPlanId);
   const plansUnavailable = plansLoading || !!plansError || plans.length === 0;
+  const subscriptionsUnavailable = subscriptionsPending || subscriptionsFetching || !!subscriptionsError;
+  const today = new Date().toISOString().slice(0, 10);
+  const subscribedCustomers = new Set(subscriptions
+    .filter(subscription => subscription.id !== initialValues?.id &&
+      subscription.status === 'active' && subscription.end_date >= today)
+    .map(subscription => subscription.customer_id));
 
   useEffect(() => {
     if (open) {
@@ -63,6 +78,14 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
   };
 
   const handleFinish = (values: SubscriptionFormValues) => {
+    if (subscriptionsUnavailable) {
+      form.setFields([{ name: 'customer_id', errors: [t('Impossible de vérifier les abonnements en cours')] }]);
+      return;
+    }
+    if (subscribedCustomers.has(values.customer_id)) {
+      form.setFields([{ name: 'customer_id', errors: [t('Ce client possède déjà un abonnement en cours. Attendez sa fin ou annulez-le avant d’en créer un autre.')] }]);
+      return;
+    }
     const plan = plans.find(p => p.id === values.plan_id);
     if (plansUnavailable || !plan || !isUuid(plan.id)) {
       form.setFields([{ name: 'plan_id', errors: [t('Veuillez sélectionner un plan enregistré dans la base de données')] }]);
@@ -88,9 +111,25 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
       onCancel={onCancel}
       onOk={handleOk}
       confirmLoading={loading}
-      okButtonProps={{ disabled: plansUnavailable }}
+      okButtonProps={{ disabled: plansUnavailable || subscriptionsUnavailable }}
       destroyOnClose
     >
+      <Alert
+        type="info"
+        showIcon
+        title={t('Un seul abonnement en cours par client, même pour une période future.')}
+        style={{ marginBottom: 16 }}
+      />
+      {subscriptionsError && (
+        <Alert
+          type="error"
+          showIcon
+          title={t('Impossible de vérifier les abonnements en cours')}
+          description={subscriptionsError.message}
+          action={<Button onClick={() => void refetchSubscriptions()}>{t("Réessayer")}</Button>}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {plansError && (
         <Alert
           type="error"
@@ -123,8 +162,13 @@ const SubscriptionForm: React.FC<SubscriptionFormProps> = ({ open, onCancel, onS
             filterOption={(input, option) =>
               (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
             }
-            options={customers.map(c => ({ value: c.id, label: c.full_name }))}
-            disabled={!!initialValues}
+            options={customers.map(c => ({
+              value: c.id,
+              label: subscribedCustomers.has(c.id) ? `${c.full_name} - ${t('Abonnement en cours')}` : c.full_name,
+              disabled: subscribedCustomers.has(c.id),
+            }))}
+            loading={subscriptionsFetching}
+            disabled={!!initialValues || subscriptionsUnavailable}
           />
         </Form.Item>
         <Form.Item

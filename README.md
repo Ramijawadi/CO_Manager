@@ -220,11 +220,36 @@ are stored separately in `work_sessions` (not the customer `sessions`
 collection), with a partial unique index preventing multiple active shifts
 per employee. Administrators can approve/disable employee accounts, inspect
 shift history, and close a shift only with a required reason recorded in
-`admin_audit_logs`. Shift-start retries use request IDs, and shift-end retries
-are idempotent. Run `npm run setup-db` after updating to safely create the
+`admin_audit_logs`. The employee dashboard displays only the current shift and
+its start/end controls, not recent shift history; stored history remains
+available to administrators. Shift-start retries use request IDs, and shift-end retries
+are idempotent. In **Gestion des employés**, administrators can view all shifts
+or select **Voir les services** for one employee, filter by status/date, and open
+**Détails** to inspect identity, start/end times, duration, status, creation time
+and any administrative closure reason.
+Run `npm run setup-db` after updating to safely create the
 new validated collections and indexes without deleting existing records.
-Reports and platform settings remain administrator-only; employee access to
-existing operational modules is preserved.
+Reports and platform settings remain administrator-only. Administrators can
+consult customers, sessions, consumptions, subscriptions and subscription
+payments, but only employees (including legacy `staff`) can create, update or
+delete those records, including closing customer sessions. The UI disables
+these actions for administrators and the API rejects direct writes with HTTP
+403. Catalog products, plans, employee management and administrative settings
+remain available to administrators. Closing an employee shift with an audited
+reason is separate from closing a customer session and remains an admin action.
+The authenticated `GET /api/session-pricing` endpoint exposes only the hourly
+rate needed by employees for checkout, without granting settings access.
+
+Each customer can have only one active, unexpired subscription. The end date is
+inclusive (UTC date, as used by subscription lookups); future subscriptions also
+reserve that customer's slot. A new active subscription, even for a later
+non-overlapping period, must wait until the previous one expires or is cancelled.
+The rule applies to creation, reactivation, date changes and customer reassignment.
+Historical expired and cancelled subscriptions do not block a new subscription.
+The form disables customers with an ongoing subscription, while the API returns
+HTTP 409 on conflicts. The API checks inside a transaction after locking the
+customer record, so concurrent requests cannot create two ongoing subscriptions.
+Existing duplicates are not deleted automatically; cancel extra ongoing records.
 
 Public document IDs remain UUID strings so subscription forms and existing
 frontend contracts continue to work. Referenced customers, catalog products,
@@ -246,7 +271,8 @@ integer quantities, existing referenced records and date ranges. Multi-document
 writes use transactions. Customer/session/product deletion preserves the former
 cascade behavior; deleting a plan sets affected subscriptions' `plan_id` to null.
 Daily closures are upserted by date. Demo accounts are read-only on the server;
-admin and staff/employee accounts retain the existing business write permissions.
+customer-operation writes are reserved for staff/employee accounts, while
+administrators retain administrative write permissions.
 
 **This migration starts fresh.** It does not copy Supabase records or passwords,
 and it does not delete or alter the old Supabase project. Legacy SQL files are

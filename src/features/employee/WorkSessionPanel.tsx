@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Alert, Button, Card, Empty, Popconfirm, Tag, Typography, message,
+  Alert, Button, Card, Popconfirm, Tag, Typography, message,
 } from 'antd';
 import {
   CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined,
@@ -39,9 +39,6 @@ const WorkSessionPanel: React.FC = () => {
     queryFn: getMyWorkSessions,
   });
   const active = data?.active ?? null;
-  const completedShifts = (data?.history ?? [])
-    .filter(shift => shift.status === 'completed')
-    .slice(0, 4);
 
   useEffect(() => {
     if (!active) return undefined;
@@ -152,37 +149,6 @@ const WorkSessionPanel: React.FC = () => {
           </div>
         </div>
 
-        <aside className="work-session-history">
-          <div className="work-session-history-heading">
-            <Title level={5}>{t('Derniers services')}</Title>
-            <Text>{t('Historique récent')}</Text>
-          </div>
-          {completedShifts.length ? (
-            <ul className="work-session-history-list">
-              {completedShifts.map(shift => (
-                <li className="work-session-history-item" key={shift.id}>
-                  <span className="work-session-history-marker"><CheckCircleOutlined /></span>
-                  <div className="work-session-history-copy">
-                    <Text className="work-session-history-date">
-                      {formatDateTime(shift.start_time, locale)}
-                    </Text>
-                    <Text className="work-session-history-duration">
-                      {shift.duration_minutes ?? 0} {t('minutes')}
-                    </Text>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="work-session-empty">
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                imageStyle={{ height: 30, marginBottom: 4 }}
-                description={<Text type="secondary">{t('Vos services terminés apparaîtront ici.')}</Text>}
-              />
-            </div>
-          )}
-        </aside>
       </div>
     </Card>
   );

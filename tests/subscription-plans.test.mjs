@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import ts from 'typescript';
 import { createInstance } from 'i18next';
+import dayjs from 'dayjs';
+import * as jsxRuntime from 'react/jsx-runtime';
 
 const planId = '12345678-1234-1234-1234-123456789abc';
 const plan = { id: planId, name: 'Mensuel', duration_days: 30, price: 80, created_at: '' };
@@ -14,7 +16,7 @@ const input = {
 function loadApi(relativePath, dependencies) {
   const source = readFileSync(new URL(relativePath, import.meta.url), 'utf8');
   const { outputText } = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX },
   });
   const exports = {};
   const require = name => {
@@ -103,6 +105,99 @@ test('active subscriptions are constrained to both ends of the date range', asyn
   assert.equal(query.get('status'), 'active');
   assert.equal(query.get('customer_id'), input.customer_id);
   assert.equal(await loadSubscriptions(mockApi([])).getActiveSubscription(input.customer_id), null);
+});
+
+function subscriptionForm(subscriptions, query = {}, initialValues) {
+  const errors = [];
+  const submissions = [];
+  const customer = { id: input.customer_id, full_name: 'Subscriber' };
+  const form = {
+    setFields: fields => errors.push(...fields),
+    submit() {},
+  };
+  const { default: Component } = loadApi('../src/features/subscriptions/SubscriptionForm.tsx', {
+    react: { useEffect() {} },
+    'react/jsx-runtime': jsxRuntime,
+    antd: {
+      Alert: 'alert', Button: 'button', Modal: 'modal', Select: 'select', DatePicker: 'date-picker',
+      Form: Object.assign('form', { useForm: () => [form], useWatch: () => planId, Item: 'form-item' }),
+    },
+    '@tanstack/react-query': {
+      useQuery: ({ queryKey, enabled }) => {
+        if (queryKey[0] === 'plans') return { data: [plan], isFetching: false };
+        assert.equal(enabled, true);
+        return { data: subscriptions, isPending: false, isFetching: false, ...query };
+      },
+    },
+    '../plans/api': {},
+    './api': {},
+    dayjs: { default: dayjs },
+    '../../utils/uuid': loadApi('../src/utils/uuid.ts', {}),
+    '../../i18n': { getNumberLocale: () => 'fr-TN' },
+    '../expenses/types': { formatExpenseAmount: String },
+    '../plans/labels': { translatePlanName: name => name },
+    'react-i18next': { useTranslation: () => ({ t: text => text, i18n: { resolvedLanguage: 'fr' } }) },
+  });
+  const modal = Component({
+    open: true, customers: [customer], initialValues,
+    onSubmit: values => submissions.push(values),
+  });
+  const fields = modal.props.children.find(child => child?.props?.form === form);
+  const select = fields.props.children[0].props.children;
+  return {
+    modal, select, errors, submissions,
+    submit: () => fields.props.onFinish({ customer_id: customer.id, plan_id: planId, start_date: dayjs() }),
+  };
+}
+
+test('subscription form blocks ongoing and future subscriptions, including same-day expiry', () => {
+  const today = new Date().toISOString().slice(0, 10);
+  for (const [startDate, endDate] of [[today, today], ['2999-01-01', '2999-01-31']]) {
+    const form = subscriptionForm([{
+      ...input, id: 'existing-subscription', status: 'active', start_date: startDate, end_date: endDate,
+    }]);
+    assert.equal(form.select.props.options[0].disabled, true);
+    assert.match(form.select.props.options[0].label, /Abonnement en cours/);
+    form.submit();
+    assert.equal(form.submissions.length, 0);
+    assert.match(form.errors[0].errors[0], /possède déjà un abonnement en cours/);
+  }
+});
+
+test('subscription form permits expired history, cancelled subscriptions, other customers and self-edits', () => {
+  const current = { ...input, id: 'current-subscription', status: 'active', end_date: '2999-01-31' };
+  for (const [subscriptions, initialValues] of [
+    [[], undefined],
+    [[{ ...current, end_date: '2000-01-01' }], undefined],
+    [[{ ...current, status: 'cancelled' }], undefined],
+    [[{ ...current, status: 'expired' }], undefined],
+    [[{ ...current, customer_id: planId }], undefined],
+    [[current], current],
+  ]) {
+    const form = subscriptionForm(subscriptions, {}, initialValues);
+    assert.equal(form.select.props.options[0].disabled, false);
+    form.submit();
+    assert.equal(form.submissions.length, 1);
+    assert.deepEqual(form.errors, []);
+  }
+});
+
+test('subscription form cannot submit when ongoing subscriptions cannot be verified', () => {
+  for (const query of [
+    { isPending: true }, { isFetching: true }, { error: new Error('Database unavailable') },
+  ]) {
+    const form = subscriptionForm([], query);
+    assert.equal(form.modal.props.okButtonProps.disabled, true);
+    assert.equal(form.select.props.disabled, true);
+    form.submit();
+    assert.equal(form.submissions.length, 0);
+    assert.equal(form.errors[0].errors[0], 'Impossible de vérifier les abonnements en cours');
+    if (query.error) {
+      const alert = form.modal.props.children.find(child => child?.props?.type === 'error');
+      assert.equal(alert.props.description, query.error.message);
+      assert.ok(alert.props.action);
+    }
+  }
 });
 
 test('standard subscription names translate in Arabic without changing saved names', async () => {

@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 const CustomerList: React.FC = () => {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const { isDemo, requireAdmin } = usePermissions();
+  const { isReadOnly, requireWrite } = usePermissions(true);
   const [searchText, setSearchText] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | undefined>();
@@ -63,24 +63,24 @@ const CustomerList: React.FC = () => {
 
   // Handlers
   const handleAdd = () => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     setEditingCustomer(undefined);
     setIsModalOpen(true);
   };
 
   const handleEdit = (customer: Customer) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     setEditingCustomer(customer);
     setIsModalOpen(true);
   };
 
   const handleDelete = (id: string) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     deleteMutation.mutate(id);
   };
 
   const handleModalSubmit = (values: CustomerInput) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     if (editingCustomer) {
       updateMutation.mutate({ id: editingCustomer.id, ...values });
     } else {
@@ -121,13 +121,13 @@ const CustomerList: React.FC = () => {
       key: 'actions',
       render: (_: any, record: Customer) => (
         <Space size="middle">
-          <AuthButton 
+          <AuthButton employeeOnly
             type="text" 
             icon={<EditOutlined />} 
             onClick={() => handleEdit(record)}
           />
-          {isDemo ? (
-            <AuthButton type="text" danger icon={<DeleteOutlined />} />
+          {isReadOnly ? (
+            <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} />
           ) : (
             <Popconfirm
               title={t("Supprimer le visiteur")}
@@ -136,7 +136,7 @@ const CustomerList: React.FC = () => {
               okText={t("Oui")}
               cancelText={t("Non")}
             >
-              <AuthButton type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
+              <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} loading={deleteMutation.isPending && deleteMutation.variables === record.id} />
             </Popconfirm>
           )}
         </Space>
@@ -155,7 +155,7 @@ const CustomerList: React.FC = () => {
           style={{ width: 300 }}
           allowClear
         />
-        <AuthButton type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+        <AuthButton employeeOnly type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           {t("Nouveau visiteur")}{' '}</AuthButton>
       </div>
 

@@ -113,6 +113,21 @@ async function checkReferences(db, table, document, session) {
       throw badRequest('Products can only be added to active sessions.');
     }
   }
+  if (table === 'subscriptions' && document.status === 'active') {
+    const today = new Date().toISOString().slice(0, 10);
+    if (document.end_date >= today) {
+      // The customer write lock above serializes concurrent subscription checks.
+      const existing = await db.collection('subscriptions').findOne({
+        customer_id: document.customer_id,
+        id: { $ne: document.id },
+        status: 'active',
+        end_date: { $gte: today },
+      }, { session });
+      if (existing) {
+        throw Object.assign(new Error('Ce client possède déjà un abonnement en cours. Attendez sa fin ou annulez-le avant d’en créer un autre.'), { status: 409 });
+      }
+    }
+  }
 }
 
 async function deleteRecord(db, table, id, session) {
@@ -772,6 +787,14 @@ export async function createApp({
     res.json(await getFinancialYear(db, year));
   });
 
+  app.get('/api/session-pricing', async (_req, res) => {
+    const settings = await db.collection('settings').findOne({});
+    if (!settings) {
+      throw Object.assign(new Error('Database settings are missing. Run npm run setup-db.'), { status: 503 });
+    }
+    res.json({ hourly_rate: settings.hourly_rate });
+  });
+
   app.get('/api/:table', async (req, res) => {
     const { table } = req.params;
     if (!Object.hasOwn(schemas, table)) throw notFound();
@@ -816,6 +839,10 @@ export async function createApp({
   app.use('/api/:table', (req, res, next) => {
     if (!['GET', 'HEAD'].includes(req.method) && req.user.role === 'demo') {
       return res.status(403).json({ message: 'Demo accounts are read-only.' });
+    }
+    if (!['GET', 'HEAD'].includes(req.method) &&
+        ['customers', 'sessions', 'session_products', 'subscriptions', 'subscription_payments'].includes(req.params.table)) {
+      return requireEmployee(req, res, next);
     }
     if (['settings', 'daily_closures'].includes(req.params.table) && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'This operation is available for administrators only.' });

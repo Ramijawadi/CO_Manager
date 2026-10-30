@@ -9,7 +9,7 @@ const timestamp = z.iso.datetime({ offset: true }).transform(value => new Date(v
 const customer = z.object({
   full_name: name,
   email: z.union([z.email(), z.literal('')]).optional(),
-  phone: text.optional(),
+  phone: z.union([z.literal(''), z.string().regex(/^[0-9]{8}$/)]).optional(),
   notes: text.optional(),
   status: text.optional(),
 }).strict();

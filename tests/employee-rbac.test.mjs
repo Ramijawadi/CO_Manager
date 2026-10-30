@@ -21,6 +21,8 @@ function makeDatabase() {
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
       if ('$in' in expected && !expected.$in.includes(value)) return false;
       if ('$gt' in expected && !(value > expected.$gt)) return false;
+      if ('$gte' in expected && !(value >= expected.$gte)) return false;
+      if ('$lte' in expected && !(value <= expected.$lte)) return false;
       if ('$ne' in expected && value === expected.$ne) return false;
       if ('$regex' in expected && !new RegExp(expected.$regex, expected.$options).test(value)) return false;
       return true;
@@ -201,6 +203,75 @@ test('employee registration, shifts, ownership, admin controls and account revoc
   await request('/admin/employees', 'GET', undefined, adminCookie, 200);
   await request('/admin/employees', 'GET', undefined, otherCookie, 403);
 
+  const settingsId = uuid();
+  await request('/session-pricing', 'GET', undefined, employeeCookie, 503);
+  db.seed('settings', { id: settingsId, hourly_rate: 0, private_setting: 'admin-only' });
+  await request('/session-pricing', 'GET', undefined, undefined, 401);
+  for (const cookie of [adminCookie, employeeCookie]) {
+    const pricing = await request('/session-pricing', 'GET', undefined, cookie);
+    assert.deepEqual(pricing.value, { hourly_rate: 0 });
+  }
+  await request(`/settings/${settingsId}`, 'PATCH', { hourly_rate: 2 }, employeeCookie, 403);
+  await request(`/settings/${settingsId}`, 'PATCH', { hourly_rate: 2 }, adminCookie);
+
+  const product = (await request('/products', 'POST', {
+    name: 'Coffee', price: 1500, stock: 10,
+  }, adminCookie, 201)).value;
+  const plan = (await request('/plans', 'POST', {
+    name: 'Monthly', price: 80, duration_days: 30,
+  }, adminCookie, 201)).value;
+  const operationTables = ['customers', 'sessions', 'session_products', 'subscriptions', 'subscription_payments'];
+  for (const role of ['employee', 'staff']) {
+    const userId = uuid();
+    db.seed('users', { id: userId, email: `${role}-operations@example.com`, role, status: 'active' });
+    const cookie = createCookie(userId);
+    const customer = (await request('/customers', 'POST', { full_name: 'Visitor' }, cookie, 201)).value;
+    const session = (await request('/sessions', 'POST', { customer_id: customer.id }, cookie, 201)).value;
+    const consumption = (await request('/session_products', 'POST', {
+      session_id: session.id, product_id: product.id, quantity: 1, total_price: 1500,
+    }, cookie, 201)).value;
+    const subscription = (await request('/subscriptions', 'POST', {
+      customer_id: customer.id, plan_id: plan.id, start_date: '2026-10-01', end_date: '2026-10-31',
+    }, cookie, 201)).value;
+    const payment = (await request('/subscription_payments', 'POST', {
+      subscription_id: subscription.id, amount: 80000, payment_date: '2026-10-17',
+    }, cookie, 201)).value;
+    const records = [customer, session, consumption, subscription, payment];
+    const before = structuredClone(operationTables.map(table => db.all(table)));
+    await request(`/customers/${customer.id}`, 'PATCH', { full_name: 'Admin update' }, adminCookie, 403);
+    await request(`/sessions/${session.id}`, 'PATCH', {
+      status: 'completed', exit_time: new Date().toISOString(), time_cost: 2,
+    }, adminCookie, 403);
+    for (const [index, table] of operationTables.entries()) {
+      await request(`/${table}`, 'GET', undefined, adminCookie);
+      for (const forbiddenRole of ['admin', 'demo']) {
+        let forbiddenCookie = adminCookie;
+        if (forbiddenRole === 'demo') {
+          const demoId = uuid();
+          db.seed('users', { id: demoId, email: `${demoId}@example.com`, role: 'demo' });
+          forbiddenCookie = createCookie(demoId);
+          await request(`/${table}`, 'GET', undefined, forbiddenCookie);
+        }
+        await request(`/${table}`, 'POST', {}, forbiddenCookie, 403);
+        await request(`/${table}/${records[index].id}`, 'PATCH', {}, forbiddenCookie, 403);
+        await request(`/${table}/${records[index].id}`, 'DELETE', undefined, forbiddenCookie, 403);
+      }
+    }
+    assert.deepEqual(operationTables.map(table => db.all(table)), before);
+    await request(`/customers/${customer.id}`, 'PATCH', { full_name: 'Updated visitor' }, cookie);
+    await request(`/subscriptions/${subscription.id}`, 'PATCH', { status: 'cancelled' }, cookie);
+    await request(`/subscription_payments/${payment.id}`, 'PATCH', { amount: 40000 }, cookie);
+    await request(`/sessions/${session.id}`, 'PATCH', {
+      status: 'completed', exit_time: new Date().toISOString(), time_cost: 2,
+    }, cookie);
+    for (const [table, record] of [
+      ['session_products', consumption], ['subscription_payments', payment],
+      ['sessions', session], ['subscriptions', subscription], ['customers', customer],
+    ]) {
+      await request(`/${table}/${record.id}`, 'DELETE', undefined, cookie, 204);
+    }
+  }
+
   await request('/employee/work-sessions', 'POST', {}, employeeCookie, 400);
   const startRequestId = uuid();
   const overlappingStartRequestId = uuid();
@@ -296,6 +367,17 @@ test('employee registration, shifts, ownership, admin controls and account revoc
   assert.equal(audit.actor_id, adminId);
   assert.equal(audit.reason, 'Employee left unexpectedly.');
   assert.equal(db.all('notifications').filter(item => item.type === 'shift_admin_closed').length, 1);
+  const adminShiftHistory = await request(
+    `/admin/work-sessions?employeeId=${createdUser.id}&status=completed`, 'GET', undefined, adminCookie,
+  );
+  const closedShift = adminShiftHistory.value.items.find(shift => shift.id === activeShift.value.id);
+  assert.equal(closedShift.employee.id, createdUser.id);
+  assert.equal(closedShift.close_reason, 'Employee left unexpectedly.');
+  assert.equal(closedShift.closed_by, adminId);
+  assert.ok(closedShift.start_time);
+  assert.ok(closedShift.end_time);
+  assert.ok(closedShift.duration_minutes >= 0);
+  await request('/admin/work-sessions', 'GET', undefined, employeeCookie, 403);
 
   await request(`/admin/employees/${createdUser.id}/status`, 'PATCH', {
     status: 'disabled', reason: 'Contract ended.',
@@ -305,4 +387,97 @@ test('employee registration, shifts, ownership, admin controls and account revoc
   assert.equal(db.all('admin_audit_logs').length, 2);
   await request('/auth/session', 'GET', undefined, employeeCookie, 401);
   await request('/employee/work-sessions', 'GET', undefined, employeeCookie, 401);
+});
+
+test('a customer can have only one unfinished active subscription, including future renewals', async t => {
+  const db = makeDatabase();
+  const employeeId = uuid();
+  const token = newToken();
+  db.seed('users', { id: employeeId, email: 'subscriptions@example.com', role: 'employee', status: 'active' });
+  db.seed('auth_sessions', {
+    id: uuid(), token_hash: tokenHash(token), user_id: employeeId,
+    expires_at: new Date(Date.now() + 60_000),
+  });
+  const customerId = uuid();
+  const otherCustomerId = uuid();
+  const planId = uuid();
+  db.seed('customers', { id: customerId, full_name: 'Subscriber' });
+  db.seed('customers', { id: otherCustomerId, full_name: 'Other subscriber' });
+  db.seed('plans', { id: planId, name: 'Monthly', price: 80, duration_days: 30 });
+  const transactionSession = {};
+  const lockEvents = [];
+  const instrumentedDb = {
+    ...db,
+    collection(name) {
+      const collection = db.collection(name);
+      return {
+        ...collection,
+        async findOneAndUpdate(filter, update, options) {
+          if (name === 'customers' && update.$inc?._reference_version) {
+            assert.equal(options.session, transactionSession);
+            lockEvents.push(filter.id);
+          }
+          return collection.findOneAndUpdate(filter, update, options);
+        },
+        async findOne(filter, options) {
+          if (name === 'subscriptions' && filter.end_date) {
+            assert.equal(options.session, transactionSession);
+            assert.equal(lockEvents.at(-1), filter.customer_id, 'Acquire the customer write lock before checking conflicts.');
+          }
+          return collection.findOne(filter, options);
+        },
+      };
+    },
+  };
+  const client = {
+    withSession: callback => callback(Object.assign(transactionSession, { withTransaction: operation => operation() })),
+  };
+  const app = await createApp({ db: instrumentedDb, client, serverless: true, serveFrontend: false });
+  const server = app.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  });
+  const date = offset => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+  const base = `http://127.0.0.1:${server.address().port}/api/subscriptions`;
+  const request = async (suffix, method, body, expected) => {
+    const response = await fetch(`${base}${suffix}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', Cookie: `co_manager_session=${token}` },
+      body: JSON.stringify(body),
+    });
+    const value = await response.json();
+    assert.equal(response.status, expected, JSON.stringify(value));
+    if (expected === 409) assert.match(value.message, /possède déjà un abonnement en cours/);
+    return value;
+  };
+  const input = {
+    customer_id: customerId, plan_id: planId, start_date: date(-30), end_date: date(0),
+  };
+  const first = await request('', 'POST', input, 201);
+  await request('', 'POST', input, 409);
+  await request('', 'POST', { ...input, start_date: date(1), end_date: date(31) }, 409);
+  assert.equal(db.all('subscriptions').length, 1);
+  await request(`/${first.id}`, 'PATCH', { plan_id: planId }, 200);
+
+  const other = await request('', 'POST', { ...input, customer_id: otherCustomerId }, 201);
+  await request(`/${other.id}`, 'PATCH', { customer_id: customerId }, 409);
+  assert.equal(db.all('subscriptions').find(row => row.id === other.id).customer_id, otherCustomerId);
+  await request(`/${first.id}`, 'PATCH', { status: 'cancelled' }, 200);
+  const future = await request('', 'POST', { ...input, start_date: date(1), end_date: date(31) }, 201);
+  await request('', 'POST', { ...input, start_date: date(32), end_date: date(62) }, 409);
+  await request(`/${first.id}`, 'PATCH', { status: 'active' }, 409);
+  assert.equal(db.all('subscriptions').find(row => row.id === first.id).status, 'cancelled');
+  await request(`/${future.id}`, 'PATCH', { status: 'expired' }, 200);
+  await request(`/${first.id}`, 'PATCH', { status: 'active' }, 200);
+
+  const historical = await request('', 'POST', { ...input, end_date: date(-1) }, 201);
+  await request(`/${historical.id}`, 'PATCH', { end_date: date(30) }, 409);
+  assert.equal(db.all('subscriptions').find(row => row.id === historical.id).end_date, date(-1));
+  await request(`/${first.id}`, 'PATCH', { end_date: date(-1) }, 200);
+  const renewed = await request('', 'POST', { ...input, start_date: date(0), end_date: date(30) }, 201);
+  assert.equal(renewed.status, 'active');
+  await request(`/${renewed.id}`, 'PATCH', { status: 'cancelled' }, 200);
+  await request(`/${future.id}`, 'PATCH', { status: 'active' }, 200);
 });

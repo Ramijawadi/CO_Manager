@@ -8,6 +8,8 @@ export interface WorkSession {
   duration_minutes: number | null;
   status: 'active' | 'completed';
   created_at: string;
+  closed_by?: string;
+  close_reason?: string;
   employee?: { id: string; full_name?: string; email: string } | null;
 }
 

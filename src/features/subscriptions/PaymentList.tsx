@@ -30,7 +30,7 @@ export default function PaymentList() {
   const [messageApi, contextHolder] = message.useMessage();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionPayment>();
-  const { requireAdmin, isDemo } = usePermissions();
+  const { requireWrite, isReadOnly } = usePermissions(true);
   const queryClient = useQueryClient();
   const payments = useQuery({ queryKey: ['subscriptionPayments'], queryFn: getSubscriptionPayments });
   const subscriptions = useQuery({ queryKey: ['subscriptions'], queryFn: getSubscriptions });
@@ -58,12 +58,12 @@ export default function PaymentList() {
   });
   const saving = createMutation.isPending || updateMutation.isPending;
   const edit = (payment?: SubscriptionPayment) => {
-    if (!requireAdmin()) return;
+    if (!requireWrite()) return;
     setEditing(payment);
     setOpen(true);
   };
   const submit = (values: PaymentValues) => {
-    if (!requireAdmin() || saving) return;
+    if (!requireWrite() || saving) return;
     const input = { amount: values.amount, payment_date: values.payment_date.format('YYYY-MM-DD'), notes: values.notes?.trim() ?? '' };
     if (editing) updateMutation.mutate({ id: editing.id, input });
     else if (values.subscription_id) createMutation.mutate({ ...input, subscription_id: values.subscription_id });
@@ -77,11 +77,11 @@ export default function PaymentList() {
     { title: t("Notes"), dataIndex: 'notes', ellipsis: true },
     { title: t("Actions"), width: 120, render: (_: unknown, row) => (
       <Space>
-        <AuthButton type="text" icon={<EditOutlined />} aria-label={`Modifier le paiement de ${row.customer_name}`} onClick={() => edit(row)} />
-        {isDemo ? <AuthButton type="text" danger icon={<DeleteOutlined />} /> : (
+        <AuthButton employeeOnly type="text" icon={<EditOutlined />} aria-label={`Modifier le paiement de ${row.customer_name}`} onClick={() => edit(row)} />
+        {isReadOnly ? <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} /> : (
           <Popconfirm title={t("Supprimer le paiement")} description={t("Ce paiement sera retiré des revenus.")}
-            okText={t("Oui")} cancelText={t("Non")} onConfirm={() => { if (requireAdmin()) deleteMutation.mutate(row.id); }}>
-            <AuthButton type="text" danger icon={<DeleteOutlined />} aria-label={`Supprimer le paiement de ${row.customer_name}`}
+            okText={t("Oui")} cancelText={t("Non")} onConfirm={() => { if (requireWrite()) deleteMutation.mutate(row.id); }}>
+            <AuthButton employeeOnly type="text" danger icon={<DeleteOutlined />} aria-label={`Supprimer le paiement de ${row.customer_name}`}
               disabled={deleteMutation.isPending} loading={deleteMutation.isPending && deleteMutation.variables === row.id} />
           </Popconfirm>
         )}
@@ -94,7 +94,7 @@ export default function PaymentList() {
       <Space direction="vertical" size={16} style={{ width: '100%' }}>
         <Alert type="info" showIcon title={t("Enregistrez uniquement les montants réellement reçus")}
           description={t("Chaque versement est compté à sa date de paiement, même en plusieurs fois. Les anciens abonnements ne sont pas considérés comme payés automatiquement. Annuler ou supprimer un abonnement ne supprime pas ses paiements.")} />
-        <AuthButton type="primary" icon={<PlusOutlined />} onClick={() => edit()}>{t("Nouveau paiement")}</AuthButton>
+        <AuthButton employeeOnly type="primary" icon={<PlusOutlined />} onClick={() => edit()}>{t("Nouveau paiement")}</AuthButton>
         {payments.error && <Alert type="error" showIcon title={t("Impossible de charger les paiements")} description={payments.error.message}
           action={<Button onClick={() => { void payments.refetch(); }}>{t("Réessayer")}</Button>} />}
         <Table columns={columns} rowKey="id" dataSource={payments.data} loading={payments.isLoading}
@@ -104,7 +104,7 @@ export default function PaymentList() {
         onCancel={() => { if (!saving) setOpen(false); }} destroyOnHidden
         okText={t("Enregistrer")} cancelText={t("Annuler")} confirmLoading={saving}
         okButtonProps={{ htmlType: 'submit', form: 'subscription-payment-form',
-          disabled: !editing && (subscriptions.isLoading || !!subscriptions.error || !subscriptions.data?.length) }}
+          disabled: isReadOnly || (!editing && (subscriptions.isLoading || !!subscriptions.error || !subscriptions.data?.length)) }}
         cancelButtonProps={{ disabled: saving }} closable={!saving} keyboard={!saving} mask={{ closable: !saving }}>
         {!editing && subscriptions.error && <Alert type="error" title={t("Impossible de charger les abonnements")}
           description={subscriptions.error.message} action={<Button onClick={() => { void subscriptions.refetch(); }}>{t("Réessayer")}</Button>} />}
