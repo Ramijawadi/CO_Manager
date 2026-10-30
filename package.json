@@ -10,6 +10,7 @@
     "start": "node server/index.mjs",
     "setup-db": "node server/setup.mjs",
     "create-admin": "node create_admin.js",
+    "create-test-users": "node create_test_users.js",
     "configure-mongodb": "node server/configure-env.mjs",
     "test": "node --test tests/*.test.mjs",
     "build": "tsc -b && vite build",

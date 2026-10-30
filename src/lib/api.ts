@@ -26,6 +26,10 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
     if (response.status === 401 && path !== '/auth/login') {
       window.dispatchEvent(new Event('auth-expired'));
     }
+    if (response.status === 403) {
+      // The session may have changed in another tab (different account/role): resync the UI.
+      window.dispatchEvent(new Event('auth-changed'));
+    }
     if (!response.headers.get('content-type')?.includes('application/json')) {
       throw new ApiError('API unavailable. Start the backend and check its MongoDB connection.', response.status);
     }

@@ -23,6 +23,7 @@ import { signOut } from '../lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/authStore';
 import { useDatabaseRealtime } from '../hooks/useDatabaseRealtime';
+import { useSessionSync } from '../hooks/useSessionSync';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from './LanguageSwitcher';
 import { NotificationBell } from '../features/notifications/NotificationBell';
@@ -34,6 +35,7 @@ const AppLayout: React.FC = () => {
   const { role, user, signOut: clearAuth } = useAuthStore();
   const { t } = useTranslation();
   const { status: realtimeStatus } = useDatabaseRealtime();
+  useSessionSync();
   const queryClient = useQueryClient();
   const {
     token: { colorBgContainer },

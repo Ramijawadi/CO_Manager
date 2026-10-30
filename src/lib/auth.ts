@@ -11,8 +11,22 @@ export interface AuthSession {
   user: AuthUser;
 }
 
-export const signIn = (email: string, password: string): Promise<AuthSession> =>
-  apiRequest('/auth/login', { method: 'POST', body: jsonBody({ email, password }) });
+export const AUTH_SYNC_STORAGE_KEY = 'comanager-auth-sync';
+
+// Session cookies are shared by every tab, so tell the other open tabs to reload their session.
+function notifyOtherTabs(): void {
+  try {
+    window.localStorage.setItem(AUTH_SYNC_STORAGE_KEY, String(Date.now()));
+  } catch {
+    // Storage can be unavailable (private mode); tabs still resync on focus or on a 403.
+  }
+}
+
+export async function signIn(email: string, password: string): Promise<AuthSession> {
+  const session = await apiRequest<AuthSession>('/auth/login', { method: 'POST', body: jsonBody({ email, password }) });
+  notifyOtherTabs();
+  return session;
+}
 
 export const registerEmployee = (
   fullName: string, email: string, password: string, phone?: string,
@@ -37,4 +51,5 @@ export async function signOut(): Promise<void> {
   } catch (error) {
     if (!(error instanceof ApiError && error.status === 401)) throw error;
   }
+  notifyOtherTabs();
 }

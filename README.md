@@ -287,6 +287,7 @@ historical references, not MongoDB setup instructions.
 | `npm run dev:web` | Start Vite only |
 | `npm run setup-db` | Initialize collections, validators, indexes and defaults |
 | `npm run create-admin` | Create an admin with a hashed password |
+| `npm run create-test-users` | Create one active test account per role (`test-<role>@comanager.test`); existing accounts are skipped. Set `TEST_USERS_PASSWORD` to choose the password, otherwise random passwords are printed once |
 | `npm run verify-schema` | Read-only collection, index and admin verification |
 | `npm test` | Offline backend and subscription regression tests |
 | `npm run build` | Type-check and build the frontend |
